@@ -62,7 +62,8 @@ def main(subdir="modern", ckpt="apollo.pt", name="Apollo", iters=2500, threads=N
         except OSError:
             pass
 
-    batch = 32 if block <= 128 else 24
+    # big batch on a real GPU keeps it busy (the whole point of the T4); small on Mac/CPU
+    batch = 64 if device == "cuda" else (32 if block <= 128 else 24)
     model = CharLM(len(coder.tokens), n_embd=n_embd, n_head=n_head,
                    n_layer=n_layer, block_size=block, drop=0.2).to(device)
     print(f"[{name}] model: {sum(p.numel() for p in model.parameters()):,} params (random init)")
