@@ -102,12 +102,17 @@ def main(subdir="modern", ckpt="apollo.pt", name="Apollo", iters=2500, threads=N
 
     t0 = time.time()
     best = (-1.0, float("inf"))               # (generalization, -val): maximize gen, then min val
+    amp = (device == "cuda")                  # fp16 mixed precision — big speedup on tensor-core GPUs (T4)
+    scaler = torch.cuda.amp.GradScaler(enabled=amp)
     for it in range(1, iters + 1):
         x, y = get_batch(train)
-        _, loss = model(x, y)
+        with torch.autocast(device_type="cuda" if amp else "cpu",
+                            dtype=torch.float16, enabled=amp):
+            _, loss = model(x, y)
         opt.zero_grad(set_to_none=True)
-        loss.backward()
-        opt.step()
+        scaler.scale(loss).backward()
+        scaler.step(opt)
+        scaler.update()
         if it == 1 or it % 200 == 0:
             model.eval()
             with torch.no_grad():
