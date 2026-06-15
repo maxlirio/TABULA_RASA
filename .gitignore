@@ -1,0 +1,32 @@
+# trained models & runtime artifacts (too big for GitHub; they're outputs)
+*.pt
+*.pt.training
+*.pt.bak
+*.log
+brain.json
+chatmem.json
+_*.json
+__pycache__/
+*.pyc
+
+# raw downloads / big intermediates (regenerable; not needed to train on the cloud)
+cornell.zip
+dd.dl
+dict.json
+cornell movie-dialogs corpus/
+dd_tmp/
+
+# big per-source data dirs — we commit ONLY the final data/mixed/chat.txt to train from
+data/books/
+data/dialogue_clean/
+data/dialogue_modern/
+data/classical/
+data/modern/
+data/dictionary/
+data/commands/
+data/rewards/
+data/chitchat/
+data/misc/
+data/rules/
+data/convo/
+data/tooluse/
