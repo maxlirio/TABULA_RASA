@@ -28,7 +28,12 @@ def main():
     if not os.path.exists(apollo):
         print("No trained brain found. Train one first:  python3 train_lm.py mixed apollo.pt")
         return
-    chat = Chat({"apollo": load(apollo)}, "apollo", MEM)
+    model, coder = load(apollo)
+    chat = Chat({"apollo": (model, coder)}, "apollo", MEM)
+    import time as _t
+    params = sum(p.numel() for p in model.parameters())
+    built = _t.strftime("%Y-%m-%d %H:%M", _t.localtime(os.path.getmtime(apollo)))
+    print(f"[brain: {params/1e6:.1f}M params, vocab {len(coder.tokens) if hasattr(coder,'tokens') else len(coder.chars)}, trained {built}]")
     print(HELLO + "\n")
 
     while True:

@@ -224,12 +224,11 @@ class Chat:
         model, coder = self.voices[self.voice]
         # Keep only the last exchange as context — the real memory is the knowledge store, and
         # a long history derails this small model. Most turns generate cleanly from a fresh seed.
-        # feed the standing rules first (the model learned to obey in-context RULE: lines),
-        # then the last exchange, then the current turn.
+        # feed the standing rules (the model learned to obey in-context RULE: lines), but NOT
+        # the chat history — feeding its own prior replies back made it perseverate on its own
+        # thread ("won't be put off it"). Real continuity lives in the knowledge store instead.
         rule_lines = [f"RULE: {r}" for r in self.rules[-3:]]
-        turn_lines = [f"{r}: {m}" for r, m in self.session[-2:]]
-        lines = rule_lines + turn_lines
-        seed = ("\n".join(lines) + "\n" if lines else "") + f"USER: {text}\nBOT: "
+        seed = ("\n".join(rule_lines) + "\n" if rule_lines else "") + f"USER: {text}\nBOT: "
         ids = coder.encode(seed) or [coder.stoi.get("\n", 0)]
         ban = [coder.stoi["<unk>"]] if "<unk>" in getattr(coder, "stoi", {}) else None
         out_ids = model.generate(torch.tensor([ids]), 50, temp=0.4, ban=ban)[0].tolist()
