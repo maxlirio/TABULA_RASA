@@ -61,6 +61,20 @@ PAIRS = [
     (["how was your day", "how are you doing", "how have you been", "how is it going"],
      ["i'm doing well, thanks for asking - how about you?", "pretty good! how are you?",
       "i'm good. how's your day going?", "doing well! and you?"]),
+    (["goodbye", "bye", "see you", "see you later", "good night", "i have to go",
+      "talk to you later", "i'm leaving", "gotta go"],
+     ["goodbye! take care.", "see you later!", "bye! it was nice talking.", "take care!",
+      "good night!", "talk soon!"]),
+    (["what should i eat for dinner", "what should i do", "what should i watch",
+      "any suggestions", "what do you recommend", "what should i make"],
+     ["hard to say - what are you in the mood for?", "what do you usually like?",
+      "whatever sounds good to you right now!", "i'd go with whatever you're craving.",
+      "hmm, what are you leaning toward?"]),
+    (["my dog is sick", "i'm not feeling well", "i'm sick", "something bad happened",
+      "i'm worried", "i'm stressed", "i'm having a hard time", "my friend is upset"],
+     ["oh no, i'm sorry to hear that.", "that's hard - i hope things get better.",
+      "i'm sorry, that sounds tough.", "sending good thoughts your way.",
+      "that's rough - i'm here if you want to talk."]),
 ]
 
 
