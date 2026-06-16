@@ -39,13 +39,13 @@ def load_corpus(subdir="."):
 
 
 def main(subdir="modern", ckpt="apollo.pt", name="Apollo", iters=2500, threads=None,
-         n_embd=192, n_layer=4, block=128, n_head=6):
+         n_embd=192, n_layer=4, block=128, n_head=6, batch=None):
     torch.manual_seed(1)
     torch.set_num_threads(threads or os.cpu_count() or 4)
     device = ("cuda" if torch.cuda.is_available()
               else "mps" if torch.backends.mps.is_available() else "cpu")
     text = load_corpus(subdir)
-    coder = WordCoder.from_text(text, min_freq=4)   # prune rare words (bigger corpus now)
+    coder = WordCoder.from_text(text, min_freq=16)  # prune rare words (big corpus -> ~62k vocab)
     data = torch.tensor(coder.encode(text), dtype=torch.long)
     n = int(0.95 * len(data))
     train, val = data[:n], data[n:]
@@ -63,7 +63,7 @@ def main(subdir="modern", ckpt="apollo.pt", name="Apollo", iters=2500, threads=N
             pass
 
     # big batch on a real GPU keeps it busy (the whole point of the T4); small on Mac/CPU
-    batch = 64 if device == "cuda" else (32 if block <= 128 else 24)
+    batch = batch or (64 if device == "cuda" else (32 if block <= 128 else 24))
     model = CharLM(len(coder.tokens), n_embd=n_embd, n_head=n_head,
                    n_layer=n_layer, block_size=block, drop=0.2).to(device)
     print(f"[{name}] model: {sum(p.numel() for p in model.parameters()):,} params (random init)")
@@ -146,4 +146,5 @@ if __name__ == "__main__":
          int(a[5]) if len(a) > 5 else 192,
          int(a[6]) if len(a) > 6 else 4,
          int(a[7]) if len(a) > 7 else 128,
-         int(a[8]) if len(a) > 8 else 6)
+         int(a[8]) if len(a) > 8 else 6,
+         int(a[9]) if len(a) > 9 else None)

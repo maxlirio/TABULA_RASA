@@ -1,90 +1,110 @@
 #!/usr/bin/env python3
-"""Build consistent-frame training pairs that map a PLAIN-ENGLISH locomotion goal to a
-reward spec for a virtual humanoid. This is the "language -> reward" job: you say
-"make it move forward efficiently", it emits a reward made of known terms.
+"""Teach LANGUAGE -> REWARD across many domains and phrasings, so it generalizes beyond
+locomotion. The model sees a goal stated many ways ("design a reward system for X",
+"make a reward for X", "make it X") and learns to emit a reward spec: a signed list of
+relevant terms. Domains/terms vary so it learns the OPERATION, not specific rewards.
 
-The reward is a small DSL: a signed list of terms from a fixed library, with optional
-(strong)/(weak) emphasis. A separate compiler (you write later) turns this into the actual
-reward function; RL then optimises the policy. The model only has to learn goal -> which
-terms, their sign, and rough emphasis -- and to ask for clarity when the goal is vague.
-
-Term library (the ceiling on what it can express):
-  forward_velocity, distance, upright, fall, energy_cost, jerk, lateral_deviation, height, alive
+These are EXAMPLES of the breadth, not the limit — the variety is what lets it generalize.
+Output: data/rewards/chat.txt
 """
 import os
 import random
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-# ways to phrase "I want the humanoid to ..."
-LEAD = ["make it", "teach it to", "i want it to", "get it to", "have it", "train it to"]
-# core forward goal + how modifiers attach extra reward terms
-SPEED = {"": "", "quickly": "(strong)", "fast": "(strong)", "slowly": "(weak)",
-         "at a steady pace": ""}
-EFF = ["efficiently", "using less energy", "without wasting energy"]
-SMOOTH = ["smoothly", "gently", "without jerking"]
+# (gerund-form goal, reward spec) across domains
+GOALS = [
+    # locomotion
+    ("moving forward efficiently", "+forward_velocity +upright -fall -energy_cost"),
+    ("walking smoothly", "+forward_velocity +upright -fall -jerk"),
+    ("running fast", "+forward_velocity(strong) +upright -fall"),
+    ("jumping well", "+jump_height +stable_landing +upright -fall -energy_cost"),
+    ("jumping high", "+jump_height(strong) +stable_landing -fall"),
+    ("balancing", "+upright -lateral_deviation -fall -energy_cost"),
+    ("climbing stairs", "+height_gained +upright -fall -energy_cost"),
+    ("swimming forward", "+forward_velocity -drag -energy_cost"),
+    ("standing still", "+upright -movement -fall"),
+    # manipulation
+    ("grabbing the object", "+grasp_success -drops -collisions"),
+    ("lifting the box", "+box_height +grasp_success -drops"),
+    ("stacking the blocks", "+blocks_stacked +stability -drops -collisions"),
+    ("placing the cup on the shelf", "+placed_correctly -drops -collisions"),
+    ("carrying the tray without spilling", "+distance_carried -spills -tilt"),
+    ("opening the door", "+door_opened -collisions -force_used"),
+    ("pouring water into the glass", "+water_in_glass -spilled -overflow"),
+    # organizing / sorting
+    ("organizing the files", "+files_in_correct_folder +tidiness -misplaced -time"),
+    ("sorting the items by color", "+items_correctly_sorted -mistakes -time"),
+    ("tidying the desk", "+items_put_away +tidiness -clutter_left"),
+    ("alphabetizing the list", "+correct_order -out_of_order -time"),
+    ("grouping similar objects", "+correct_groups -wrong_groups"),
+    # cleaning
+    ("cleaning the room", "+area_cleaned -mess_remaining -time"),
+    ("sweeping the floor", "+floor_cleaned -dirt_left -time"),
+    ("washing the dishes", "+dishes_cleaned -dishes_left -water_wasted"),
+    # navigation
+    ("reaching the target", "+reached_target -distance -time -collisions"),
+    ("avoiding the obstacles", "+obstacles_avoided -collisions"),
+    ("following the path", "+on_path -deviation -time"),
+    ("exploring the room", "+area_explored -repeated_areas -time"),
+    ("finding the exit", "+reached_exit -distance -time"),
+    # games / objectives
+    ("winning the game", "+score +wins -losses"),
+    ("scoring points", "+points_scored -turnovers"),
+    ("beating the opponent", "+score_difference +wins -losses"),
+    ("surviving as long as possible", "+time_alive -damage_taken"),
+    # building / making
+    ("building a tall tower", "+tower_height +stability -blocks_fallen"),
+    ("building a stable bridge", "+bridge_stability +span -collapses -materials_used"),
+    ("drawing a circle", "+shape_accuracy -deviation"),
+    # generic quality / efficiency
+    ("finishing the task quickly", "+task_progress -time -energy_cost"),
+    ("doing it accurately", "+accuracy -errors"),
+    ("using less energy", "+task_progress -energy_cost"),
+]
+REQ = [
+    "design a reward system for {g}", "design a reward for {g}",
+    "make a reward function for {g}", "make a reward for {g}",
+    "give me a reward for {g}", "how should i reward {g}",
+    "what's a good reward for {g}", "i need a reward system for {g}",
+    "set up a reward for {g}", "reward it for {g}",
+]
+# direct imperative style too ("make it jump high")
+DIRECT = {
+    "move forward efficiently": "+forward_velocity +upright -fall -energy_cost",
+    "walk smoothly": "+forward_velocity +upright -fall -jerk",
+    "jump high": "+jump_height(strong) +stable_landing -fall",
+    "run fast": "+forward_velocity(strong) +upright -fall",
+    "balance": "+upright -lateral_deviation -fall -energy_cost",
+    "stack the blocks": "+blocks_stacked +stability -drops",
+    "reach the target": "+reached_target -distance -time -collisions",
+    "clean the room": "+area_cleaned -mess_remaining -time",
+}
+VAGUE = [
+    ("design a reward system", "for what task? tell me the goal and i'll build the reward."),
+    ("make a reward", "a reward for what? give me the goal."),
+    ("make it better", "better at what - the goal decides the reward."),
+]
 
 
-def spec(*terms):
-    return "reward: " + " ".join(terms)
-
-
-def frames(r):
-    lead = r.choice(LEAD)
-    speed_word = r.choice(list(SPEED))
-    s = SPEED[speed_word]
-    out = []
-    base = f"+forward_velocity{s} +upright -fall"
-
-    # move forward (plain / speed)
-    g = f"{lead} move forward {speed_word}".strip()
-    out.append((g, spec("+forward_velocity" + s, "+upright", "-fall")))
-    # efficiently -> add energy penalty
-    out.append((f"{lead} move forward {r.choice(EFF)}",
-                spec("+forward_velocity", "+upright", "-fall", "-energy_cost")))
-    # smoothly -> add jerk penalty
-    out.append((f"{lead} walk {r.choice(SMOOTH)}",
-                spec("+forward_velocity", "+upright", "-fall", "-jerk")))
-    # straight line -> penalise drift
-    out.append((f"{lead} go forward in a straight line",
-                spec("+forward_velocity", "-lateral_deviation", "+upright", "-fall")))
-    # without falling -> strong fall penalty
-    out.append((f"{lead} move forward without falling",
-                spec("+forward_velocity", "+upright", "-fall(strong)")))
-    # as far as possible -> distance
-    out.append((f"{lead} walk as far as possible",
-                spec("+distance", "+upright", "-fall")))
-    # balance / stand still
-    out.append((r.choice([f"{lead} stand still", f"{lead} balance in place",
-                          f"{lead} keep its balance"]),
-                spec("+upright", "-lateral_deviation", "-fall", "-energy_cost")))
-    # combined: forward + efficient + smooth
-    out.append((f"{lead} move forward {r.choice(EFF)} and {r.choice(SMOOTH)}",
-                spec("+forward_velocity", "+upright", "-fall", "-energy_cost", "-jerk")))
-
-    # vague goals -> ask ONE clarifying question, stay on topic
-    out.append(("make it better",
-                "better at what - moving forward, balancing, or using less energy?"))
-    out.append((f"{lead} move",
-                "which way should it move - forward, or just balance in place?"))
-    out.append((f"{lead} do well",
-                "what counts as doing well here - speed, distance, or staying upright?"))
-    return out
-
-
-def main(n=900, seed=2):
+def main(n=700, seed=2):
     r = random.Random(seed)
     out = []
     for _ in range(n):
-        for u, b in frames(r):
+        for g, spec in GOALS:
+            out.append(f"USER: {r.choice(REQ).format(g=g)}\nBOT: reward: {spec}\n")
+        for g, spec in DIRECT.items():
+            verb = r.choice(["make it", "teach it to", "i want it to", "get it to"])
+            out.append(f"USER: {verb} {g}\nBOT: reward: {spec}\n")
+        for u, b in VAGUE:
             out.append(f"USER: {u}\nBOT: {b}\n")
     r.shuffle(out)
     out_dir = os.path.join(HERE, "data", "rewards")
     os.makedirs(out_dir, exist_ok=True)
-    path = os.path.join(out_dir, "chat.txt")
-    with open(path, "w", encoding="utf-8") as f:
+    with open(os.path.join(out_dir, "chat.txt"), "w", encoding="utf-8") as f:
         f.write("\n".join(out))
-    print(f"[rewards] {len(out):,} turns -> {path} ({os.path.getsize(path):,} bytes)")
+    print(f"[rewards] {len(out):,} reward turns ({len(GOALS)} domains x {len(REQ)} phrasings) "
+          f"-> data/rewards/chat.txt")
 
 
 if __name__ == "__main__":

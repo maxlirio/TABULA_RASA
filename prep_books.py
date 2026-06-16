@@ -1,26 +1,28 @@
 #!/usr/bin/env python3
-"""Pull a LARGE clean public-domain text corpus via the Gutendex API (reliable bulk access to
-Project Gutenberg). Grabs the most popular English books, strips boilerplate, and writes
-data/books/chat.txt as paragraph blocks. This is the language base for a bigger model.
+"""Pull a LARGE clean public-domain corpus from Project Gutenberg (via the Gutendex API),
+downloading concurrently so it's fast. Strips boilerplate, writes data/books/chat.txt as
+paragraph blocks — the language base for a bigger model.
 """
 import json
 import os
 import re
-import time
+import sys
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-TARGET = 250          # how many books to collect
+TARGET = int(sys.argv[1]) if len(sys.argv) > 1 else 600
+WORKERS = 16
 
 
 def text_urls(target):
     urls, page = [], 1
-    while len(urls) < target and page <= 40:
+    while len(urls) < target and page <= 80:
         try:
             req = urllib.request.Request(
                 f"https://gutendex.com/books?languages=en&sort=popular&page={page}",
                 headers={"User-Agent": "Mozilla/5.0"})
-            j = json.loads(urllib.request.urlopen(req, timeout=30).read())
+            j = json.loads(urllib.request.urlopen(req, timeout=20).read())
         except Exception:
             break
         for b in j.get("results", []):
@@ -35,49 +37,48 @@ def text_urls(target):
     return urls[:target]
 
 
-def fetch(u):
+def fetch_clean(u):
     try:
         req = urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0"})
-        return urllib.request.urlopen(req, timeout=40).read().decode("utf-8", "ignore")
+        s = urllib.request.urlopen(req, timeout=15).read().decode("utf-8", "ignore")
     except Exception:
         return None
-
-
-def clean(s):
+    if len(s) < 5000:
+        return None
     m = re.search(r"\*\*\* ?START OF.*?\*\*\*", s, re.S)
     if m:
         s = s[m.end():]
     m = re.search(r"\*\*\* ?END OF", s)
     if m:
         s = s[:m.start()]
-    return (s.replace("“", '"').replace("”", '"').replace("‘", "'").replace("’", "'")
-            .replace("—", " - ").replace("–", "-").replace("\r", "")).lower()
+    s = (s.replace("“", '"').replace("”", '"').replace("‘", "'").replace("’", "'")
+         .replace("—", " - ").replace("–", "-").replace("\r", "")).lower()
+    out = []
+    for p in re.split(r"\n\s*\n", s):
+        p = re.sub(r"\s+", " ", p).strip()
+        if 60 <= len(p) <= 1200 and sum(c.isalpha() for c in p) > 0.6 * len(p):
+            out.append(p)
+    return out
 
 
 def main():
     urls = text_urls(TARGET)
-    print(f"[books] {len(urls)} book URLs from Gutendex")
-    paras, got, chars = [], 0, 0
-    for i, u in enumerate(urls):
-        s = fetch(u)
-        if not s or len(s) < 5000:
-            continue
-        s = clean(s)
-        got += 1
-        chars += len(s)
-        for p in re.split(r"\n\s*\n", s):
-            p = re.sub(r"\s+", " ", p).strip()
-            if 60 <= len(p) <= 1200 and sum(c.isalpha() for c in p) > 0.6 * len(p):
-                paras.append(p)
-        if got % 20 == 0:
-            print(f"  {got} books, {chars:,} chars, {len(paras):,} paragraphs")
-        time.sleep(0.3)
+    print(f"[books] {len(urls)} URLs from Gutendex; downloading with {WORKERS} workers...",
+          flush=True)
+    paras, got = [], 0
+    with ThreadPoolExecutor(max_workers=WORKERS) as ex:
+        for res in ex.map(fetch_clean, urls):
+            if res:
+                got += 1
+                paras.extend(res)
+                if got % 25 == 0:
+                    print(f"  {got} books, {len(paras):,} paragraphs", flush=True)
     out_dir = os.path.join(HERE, "data", "books")
     os.makedirs(out_dir, exist_ok=True)
     with open(os.path.join(out_dir, "chat.txt"), "w", encoding="utf-8") as f:
         f.write("\n\n".join(paras))
-    print(f"[books] DONE {got} books, {chars:,} chars -> {len(paras):,} paragraphs "
-          f"({os.path.getsize(os.path.join(out_dir,'chat.txt')):,} bytes)")
+    print(f"[books] DONE {got} books -> {len(paras):,} paragraphs "
+          f"({os.path.getsize(os.path.join(out_dir,'chat.txt')):,} bytes)", flush=True)
 
 
 if __name__ == "__main__":

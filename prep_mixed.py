@@ -35,7 +35,7 @@ def sample_to(r, items, budget):
     return kept
 
 
-def main(dialogue_budget=6_000_000, books_budget=60_000_000, seed=3):
+def main(dialogue_budget=6_000_000, books_budget=400_000_000, seed=3):
     r = random.Random(seed)
     # instruction/skill frames — keep ALL (consistent, the behaviors we want)
     # NOTE: tooluse is intentionally EXCLUDED until speaking is genuinely good (user's gate)
