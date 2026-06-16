@@ -75,30 +75,41 @@ def main(subdir="modern", ckpt="apollo.pt", name="Apollo", iters=2500, threads=N
         y = torch.stack([d[i + 1:i + block + 1] for i in ix])
         return x.to(device), y.to(device)
 
-    # --- generalization probe: can it follow rules over HELD-OUT (never-trained) words? ---
+    # --- generalization probe: can it follow NOVEL in-context rules over HELD-OUT words? ---
+    # We test several rule TYPES, not just substitution, so a high score means broad
+    # instruction-following (the foundation for the tools/ReAct phase) rather than one
+    # memorized pattern. Each probe is (seed, expected-first-words); checked greedily.
     hp = os.path.join(os.path.dirname(__file__), "rules_holdout.json")
-    probe_pairs, unk_id = [], coder.stoi.get("<unk>")
+    probes, unk_id = [], coder.stoi.get("<unk>")
     if os.path.exists(hp):
         import json as _json
         hw = [w for w in _json.load(open(hp)).get("holdout", []) if w in coder.stoi]
         rp = random.Random(0)
-        while len(probe_pairs) < 20 and len(hw) >= 2:
-            a, b = rp.choice(hw), rp.choice(hw)
-            if a != b:
-                probe_pairs.append((a, b))
+        for _ in range(7):
+            if len(hw) >= 4:
+                x, y, w, z = rp.sample(hw, 4)
+                # 1) substitution: replace one word with another
+                probes.append((f"RULE: say {x} instead of {y}\nUSER: {y}\nBOT: ", [x]))
+                # 2) constant-answer override: ignore content, emit a fixed word
+                probes.append((f"RULE: no matter what i say, just reply {x}\nUSER: {y}\nBOT: ", [x]))
+                # 3) echo: copy the input back
+                probes.append((f"RULE: repeat exactly what i say\nUSER: {x}\nBOT: ", [x]))
+                # 4) conditional: pick the branch that matches the input
+                probes.append((f"RULE: if i say {y} reply {x}, if i say {z} reply {w}\n"
+                               f"USER: {z}\nBOT: ", [w]))
 
     def rule_gen():
-        if not probe_pairs:
+        if not probes:
             return 0.0
         ban = [unk_id] if unk_id is not None else None
         hits = 0
-        for x, y in probe_pairs:
-            ids = coder.encode(f"RULE: say {x} instead of {y}\nUSER: {y}\nBOT: ")
-            o = model.generate(torch.tensor([ids]).to(device), 3, temp=0.1,
+        for seed, expect in probes:
+            ids = coder.encode(seed)
+            o = model.generate(torch.tensor([ids]).to(device), len(expect) + 2, temp=0.1,
                                top_k=1, ban=ban)[0].tolist()
             g = coder.decode(o[len(ids):]).split("\n")[0].strip().split()
-            hits += (g[:1] == [x])
-        return hits / len(probe_pairs)
+            hits += (g[:len(expect)] == expect)
+        return hits / len(probes)
 
     t0 = time.time()
     best = (-1.0, float("inf"))               # (generalization, -val): maximize gen, then min val
