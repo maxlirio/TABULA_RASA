@@ -232,10 +232,10 @@ class Chat:
         seed = ("\n".join(lines) + "\n" if lines else "") + f"USER: {text}\nBOT: "
         ids = coder.encode(seed) or [coder.stoi.get("\n", 0)]
         ban = [coder.stoi["<unk>"]] if "<unk>" in getattr(coder, "stoi", {}) else None
-        out_ids = model.generate(torch.tensor([ids]), 50, temp=0.5, ban=ban)[0].tolist()
+        out_ids = model.generate(torch.tensor([ids]), 50, temp=0.4, ban=ban)[0].tolist()
         gen = coder.decode(out_ids[len(ids):])    # decode ONLY the new tokens (robust)
-        for cut in ("\nUSER", "\nBOT", "\nRULE", "USER:", "BOT:", "RULE:", '"'):
-            if cut in gen:                        # '"' stops book-dialogue bleed
+        for cut in ("\nUSER", "\nBOT", "\nRULE", "USER:", "BOT:", "RULE:", '"', " '"):
+            if cut in gen:                        # quotes (incl. dialogue ') stop book-bleed
                 gen = gen.split(cut)[0]
         gen = gen.replace("\n", " ").strip()
         # keep it to a sentence or two so it can't ramble into novel prose
