@@ -38,8 +38,50 @@ def load_corpus(subdir="."):
     return "\n".join(parts)
 
 
+def warm_start(model, coder, warm_path, name):
+    """Continue training ON TOP of an existing checkpoint instead of from scratch.
+    Copies every architecture-matching tensor (the transformer blocks, positions, norms)
+    wholesale, and transplants the token-embedding ROWS by matching token strings, so all
+    prior learning is preserved; only genuinely-new vocab words start randomly. Returns the
+    number of embedding rows carried over (0 means it fell back to random init)."""
+    import os as _os
+    if not warm_path or not _os.path.exists(warm_path):
+        print(f"[{name}] warm-start: no checkpoint at {warm_path!r} - training from scratch")
+        return 0
+    old = torch.load(warm_path, map_location="cpu")
+    ost = old["state"]
+    n_layer_old = len({k.split(".")[1] for k in ost if k.startswith("blocks.")})
+    if (ost["tok.weight"].shape[1] != model.tok.weight.shape[1]      # n_embd
+            or old.get("block_size") != model.block_size
+            or n_layer_old != len(model.blocks)
+            or old.get("mode") != "word"):
+        print(f"[{name}] warm-start: architecture mismatch - training from scratch")
+        return 0
+    msd = model.state_dict()
+    src, copied = {}, 0
+    for k, v in ost.items():                       # carry over everything vocab-independent
+        if k in msd and msd[k].shape == v.shape and k not in ("tok.weight", "head.weight"):
+            src[k] = v
+            copied += 1
+    new_emb = msd["tok.weight"].clone()            # transplant embedding rows by token string
+    old_stoi = {t: i for i, t in enumerate(old["tokens"])}
+    old_emb, moved = ost["tok.weight"], 0
+    for t, i_new in coder.stoi.items():
+        j = old_stoi.get(t)
+        if j is not None:
+            new_emb[i_new] = old_emb[j]
+            moved += 1
+    src["tok.weight"] = new_emb
+    src["head.weight"] = new_emb                    # weights are tied
+    model.load_state_dict(src, strict=False)
+    model.head.weight = model.tok.weight            # keep the tie after loading
+    print(f"[{name}] warm-start: copied {copied} tensors, transplanted {moved:,}/"
+          f"{len(coder.stoi):,} embedding rows ({moved/len(coder.stoi):.0%} of new vocab)")
+    return moved
+
+
 def main(subdir="modern", ckpt="apollo.pt", name="Apollo", iters=2500, threads=None,
-         n_embd=192, n_layer=4, block=128, n_head=6, batch=None):
+         n_embd=192, n_layer=4, block=128, n_head=6, batch=None, warm=None):
     torch.manual_seed(1)
     torch.set_num_threads(threads or os.cpu_count() or 4)
     device = ("cuda" if torch.cuda.is_available()
@@ -65,9 +107,13 @@ def main(subdir="modern", ckpt="apollo.pt", name="Apollo", iters=2500, threads=N
     # big batch on a real GPU keeps it busy (the whole point of the T4); small on Mac/CPU
     batch = batch or (64 if device == "cuda" else (32 if block <= 128 else 24))
     model = CharLM(len(coder.tokens), n_embd=n_embd, n_head=n_head,
-                   n_layer=n_layer, block_size=block, drop=0.2).to(device)
-    print(f"[{name}] model: {sum(p.numel() for p in model.parameters()):,} params (random init)")
-    opt = torch.optim.AdamW(model.parameters(), lr=3e-4)
+                   n_layer=n_layer, block_size=block, drop=0.2)
+    warmed = warm_start(model, coder, warm, name)   # continue on top of an existing model
+    model = model.to(device)
+    kind = "warm-started" if warmed else "random init"
+    print(f"[{name}] model: {sum(p.numel() for p in model.parameters()):,} params ({kind})")
+    # fine-tune more gently when continuing from a trained model; full LR for a fresh start
+    opt = torch.optim.AdamW(model.parameters(), lr=1.5e-4 if warmed else 3e-4)
 
     def get_batch(d):
         ix = torch.randint(len(d) - block - 1, (batch,))
@@ -147,7 +193,7 @@ def main(subdir="modern", ckpt="apollo.pt", name="Apollo", iters=2500, threads=N
 
 
 if __name__ == "__main__":
-    # args: subdir ckpt name iters [threads] [n_embd] [n_layer] [block] [n_head]
+    # args: subdir ckpt name iters [threads] [n_embd] [n_layer] [block] [n_head] [batch] [warm.pt]
     a = sys.argv[1:]
     main(a[0] if len(a) > 0 else "modern",
          a[1] if len(a) > 1 else "apollo.pt",
@@ -158,4 +204,5 @@ if __name__ == "__main__":
          int(a[6]) if len(a) > 6 else 4,
          int(a[7]) if len(a) > 7 else 128,
          int(a[8]) if len(a) > 8 else 6,
-         int(a[9]) if len(a) > 9 else None)
+         int(a[9]) if len(a) > 9 else None,
+         a[10] if len(a) > 10 else None)

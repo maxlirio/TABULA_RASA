@@ -30,6 +30,8 @@ RECALL_NAME_YOU = ("what is your name", "what's your name", "whats your name",
 RECALL_NOTES = ("what do you remember", "what did i tell you",
                 "what have we talked about", "do you remember anything")
 FORGET = ("forget everything", "forget it all", "clear your memory", "wipe your memory")
+GREET_IN = ("hi", "hello", "hey", "heya", "hiya", "howdy", "yo", "hi there", "hey there",
+            "good morning", "good afternoon", "good evening", "greetings", "sup", "hello there")
 
 
 class Chat:
@@ -231,14 +233,30 @@ class Chat:
         seed = ("\n".join(rule_lines) + "\n" if rule_lines else "") + f"USER: {text}\nBOT: "
         ids = coder.encode(seed) or [coder.stoi.get("\n", 0)]
         ban = [coder.stoi["<unk>"]] if "<unk>" in getattr(coder, "stoi", {}) else None
-        out_ids = model.generate(torch.tensor([ids]), 50, temp=0.4, ban=ban)[0].tolist()
-        gen = coder.decode(out_ids[len(ids):])    # decode ONLY the new tokens (robust)
-        for cut in ("\nUSER", "\nBOT", "\nRULE", "USER:", "BOT:", "RULE:", '"', " '"):
-            if cut in gen:                        # quotes (incl. dialogue ') stop book-bleed
-                gen = gen.split(cut)[0]
-        gen = gen.replace("\n", " ").strip()
-        # keep it to a sentence or two so it can't ramble into novel prose
-        if "reward:" not in gen:
-            parts = re.split(r"(?<=[.!?])\s+", gen)
-            gen = " ".join(parts[:2]).strip()
-        return gen or "..."
+        # When a standing RULE is active, sample TIGHTLY so the model actually obeys it. It can
+        # follow rules near-deterministically (the training gen-probe hits ~1.0 greedily), but
+        # loose sampling drifts off the rule. No rule -> normal lively sampling.
+        temp, top_k = (0.2, 3) if rule_lines else (0.4, 40)
+        # Greetings sometimes whiff into a stray word/book-bleed; resample a few times and keep
+        # the first that actually reads like a greeting (still the MODEL's words, not canned).
+        greet = text.lower().strip().rstrip("?.!") in GREET_IN
+        best = ""
+        for _ in range(3 if greet else 1):
+            out_ids = model.generate(torch.tensor([ids]), 50, temp=temp, top_k=top_k,
+                                     ban=ban)[0].tolist()
+            gen = coder.decode(out_ids[len(ids):])    # decode ONLY the new tokens (robust)
+            for cut in ("\nUSER", "\nBOT", "\nRULE", "USER:", "BOT:", "RULE:", '"', " '"):
+                if cut in gen:                        # quotes (incl. dialogue ') stop book-bleed
+                    gen = gen.split(cut)[0]
+            gen = gen.replace("\n", " ").strip()
+            # keep it short so it can't ramble into novel prose (greetings stay to one line)
+            if "reward:" not in gen:
+                parts = re.split(r"(?<=[.!?])\s+", gen)
+                gen = " ".join(parts[:1 if greet else 2]).strip()
+            if not greet:
+                return gen or "..."
+            best = best or gen
+            first = (gen.lower().split() or [""])[0].strip(".!,")
+            if first in ("hi", "hello", "hey", "heya", "hiya", "howdy", "good", "yo"):
+                return gen
+        return best or "..."
