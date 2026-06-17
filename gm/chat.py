@@ -275,10 +275,32 @@ class Chat:
                 return gen
         return best or "..."
 
+    def _reward_intent(self, text):
+        """INTERIM bridge: detect an explicit reward request by pattern and pull out the goal.
+        Returns the goal string, "" for a goal-less request (ask), or None if not a reward ask.
+        This exists only until the model is trained to emit `CALL: reward ...` itself; then the
+        ReAct path below supersedes it and this can be deleted."""
+        t = text.lower().strip().rstrip(".!?")
+        if "reward" not in t:
+            return None
+        for pat in (r"reward(?:\s+(?:system|function|signal))?\s+for\s+(.+)$",
+                    r"how should i reward\s+(.+)$", r"reward it for\s+(.+)$"):
+            m = re.search(pat, t)
+            if m:
+                return m.group(1).strip()
+        if re.search(r"(make|design|set up|give me|need|create|want|build).*\breward\b", t):
+            return ""                              # reward request with no goal -> ask
+        return None
+
     def _react(self, text):
         """ReAct: let the model decide whether this turn needs a TOOL. If it emits a CALL we
         RUN it (gm/tools.py) and feed the RESULT back for it to verbalise; otherwise it just
         replies. The logic lives in code; the net only routes to it and phrases the answer."""
+        goal = self._reward_intent(text)           # interim: route reward asks to the tool now
+        if goal is not None:
+            if not goal:
+                return "a reward for what? tell me the goal and i'll build it."
+            return f"reward: {self.tools.run('reward ' + goal)}"
         pre = self._pre()
         # Stage 1: continue from the bare USER line (no forced BOT:) — a trained model emits
         # either "CALL: ..." (needs a tool) or "BOT: ..." (just chat).
