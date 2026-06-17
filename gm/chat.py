@@ -49,6 +49,7 @@ class Chat:
         self.session = []             # this run's transcript (for "what did I say" recall)
         self.asked = set()            # curiosity questions already asked (don't repeat)
         self.rules = []               # standing instructions for THIS session (fed to the model)
+        self.defs = {}                # word -> definition the USER taught it
         self._cooldown = 0            # rate-limit proactive questions (not after every turn)
         self._load()
         self.tools = Tools(self.know)  # executes the CALLs the model emits (see gm/tools.py)
@@ -62,6 +63,7 @@ class Chat:
             self.user_name = d.get("user_name")
             self.persona = d.get("persona")
             self.notes = d.get("notes", [])
+            self.defs = d.get("defs", {})
             self.know.load(d.get("facts", []))
             self.asked = set(d.get("asked", []))
             self.history = [tuple(p) for p in d.get("history", [])][-20:]
@@ -72,7 +74,7 @@ class Chat:
         try:
             with open(self.path, "w") as f:
                 json.dump({"bot_name": self.bot_name, "user_name": self.user_name,
-                           "persona": self.persona, "notes": self.notes,
+                           "persona": self.persona, "notes": self.notes, "defs": self.defs,
                            "facts": self.know.dump(), "asked": sorted(self.asked),
                            "history": self.history[-20:]}, f)
         except OSError:
@@ -95,6 +97,10 @@ class Chat:
             r = fn(text)
             if r is not None:
                 return r
+        # 1b) Learn a DEFINITION the user gives ("X means ...") — before the fact-engine, which
+        #     would otherwise mis-store it. Stored so "what does X mean" returns it.
+        if self._learn_definition(text):
+            return self._react(text)         # natural acknowledgement from the model
         # 2) Learn a fact: store it silently, react naturally. It does NOT pester with a
         #    question after every fact — it only wonders out loud when explicitly asked
         #    ("what are you curious about"), and only about things it genuinely can't infer.
@@ -204,8 +210,30 @@ class Chat:
             self.persona = None
             self.rules.clear()
 
+    _NOT_A_WORD = ("what", "it", "that", "this", "he", "she", "they", "there", "here",
+                   "i", "you", "we", "who", "which")
+
+    def _learn_definition(self, text):
+        """Teach a definition for a word it doesn't know yet: 'X means ...', 'define X as ...',
+        'X is defined as ...', 'X is short for ...'. A user-taught definition overrides the
+        built-in dictionary. Returns True if a definition was stored."""
+        t = text.strip().rstrip(".!")
+        m = (re.match(r"(?:the word |the term )?(\w+) means (.+)$", t, re.I)
+             or re.match(r"define (\w+) as (.+)$", t, re.I)
+             or re.match(r"(\w+) is defined as (.+)$", t, re.I)
+             or re.match(r"(?:the )?definition of (\w+) is (.+)$", t, re.I)
+             or re.match(r"(\w+) is short for (.+)$", t, re.I))
+        if not m:
+            return False
+        word, meaning = m.group(1).lower(), m.group(2).strip()
+        if word in self._NOT_A_WORD or len(meaning) < 2:   # avoid "that means a lot" etc.
+            return False
+        self.defs[word] = meaning
+        return True
+
     def _define_intent(self, text):
-        """Exact dictionary lookup — definitions must be reliable, not generated."""
+        """Exact dictionary lookup — definitions must be reliable, not generated. Checks what
+        the USER taught first, then the built-in dictionary, then taught is-a knowledge."""
         t = text.lower().strip().rstrip("?.!")
         m = (re.match(r"^what does (\w+) (?:mean|stand for)$", t)
              or re.match(r"^what'?s (\w+) mean$", t)
@@ -214,11 +242,15 @@ class Chat:
         if not m:
             return None
         w = m.group(1)
+        if w in self._NOT_A_WORD:        # "what does that mean" is chat, not a lookup
+            return None
+        if w in self.defs:
+            return f"{w} means {self.defs[w]}."
         if w in DEFS:
             return f"{w} means {DEFS[w]}."
         if any(s == w for s, _, _ in self.know.triples):    # else fall to taught knowledge
             return None
-        return f"I don't have a definition for '{w}' yet."
+        return f"I don't have a definition for '{w}' yet - tell me '{w} means ...' and I'll learn it."
 
     def _looks_like_fact(self, s):
         """So 'remember that a cat has fur' goes to the knowledge engine, not a flat note."""
