@@ -16,6 +16,7 @@ import re
 import torch
 
 from gm.know import Knowledge
+from gm.tools import Tools
 
 _DEFS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "defs.json")
 try:
@@ -50,6 +51,7 @@ class Chat:
         self.rules = []               # standing instructions for THIS session (fed to the model)
         self._cooldown = 0            # rate-limit proactive questions (not after every turn)
         self._load()
+        self.tools = Tools(self.know)  # executes the CALLs the model emits (see gm/tools.py)
 
     # --- persistence -----------------------------------------------------
     def _load(self):
@@ -112,8 +114,8 @@ class Chat:
             return ack
         # 3) Other state changes (name / persona / remember / forget) run silently.
         self._apply_memory(text)
-        # 4) Respond through the model — no canned acknowledgements.
-        return self._generate(text)
+        # 4) Respond through the model — which may CALL a tool (reward/knowledge) or just chat.
+        return self._react(text)
 
     # --- exact retrieval (answers) --------------------------------------
     def _recall(self, text):
@@ -198,6 +200,7 @@ class Chat:
         if t in FORGET:
             self.notes.clear()
             self.know = Knowledge()
+            self.tools.know = self.know       # keep the tool dispatcher pointed at live memory
             self.persona = None
             self.rules.clear()
 
@@ -222,44 +225,48 @@ class Chat:
         return bool(re.search(r"\b(is a|is an|are|has|have|can)\b", s.lower()))
 
     # --- neural reply, with persona + recent turns as context ------------
-    def _generate(self, text):
+    def _ban(self, coder):
+        return [coder.stoi["<unk>"]] if "<unk>" in getattr(coder, "stoi", {}) else None
+
+    def _pre(self):                               # standing RULE: lines fed before every turn
+        return "".join(f"RULE: {r}\n" for r in self.rules[-3:])
+
+    def _raw(self, seed, temp, top_k, max_new=50):
+        """Sample the model from a seed and return ONLY the newly generated text (with newlines
+        intact, so a CALL line can be parsed)."""
         model, coder = self.voices[self.voice]
-        # Keep only the last exchange as context — the real memory is the knowledge store, and
-        # a long history derails this small model. Most turns generate cleanly from a fresh seed.
-        # feed the standing rules (the model learned to obey in-context RULE: lines), but NOT
-        # the chat history — feeding its own prior replies back made it perseverate on its own
-        # thread ("won't be put off it"). Real continuity lives in the knowledge store instead.
-        rule_lines = [f"RULE: {r}" for r in self.rules[-3:]]
-        seed = ("\n".join(rule_lines) + "\n" if rule_lines else "") + f"USER: {text}\nBOT: "
         ids = coder.encode(seed) or [coder.stoi.get("\n", 0)]
-        ban = [coder.stoi["<unk>"]] if "<unk>" in getattr(coder, "stoi", {}) else None
-        # When a standing RULE is active, sample TIGHTLY so the model actually obeys it. It can
-        # follow rules near-deterministically (the training gen-probe hits ~1.0 greedily), but
-        # loose sampling drifts off the rule. No rule -> normal lively sampling.
-        temp, top_k = (0.2, 3) if rule_lines else (0.4, 40)
-        # Greetings sometimes whiff into a stray word/book-bleed; resample a few times and keep
-        # the first that actually reads like a greeting (still the MODEL's words, not canned).
+        out = model.generate(torch.tensor([ids]), max_new, temp=temp, top_k=top_k,
+                             ban=self._ban(coder))[0].tolist()
+        return coder.decode(out[len(ids):])
+
+    def _clean(self, gen, greet=False):
+        """Trim a BOT reply to a sentence or two, kill transcript markers, book-quote bleed,
+        and the LM's occasional looped clause."""
+        for cut in ("\nUSER", "\nBOT", "\nRULE", "\nCALL", "\nRESULT",
+                    "USER:", "BOT:", "RULE:", "CALL:", "RESULT:", '"', " '"):
+            if cut in gen:
+                gen = gen.split(cut)[0]
+        gen = gen.replace("\n", " ").strip()
+        if "reward:" not in gen:
+            gen = re.sub(r"\b(.{8,40}?),?\s+and\s+\1\b", r"\1", gen, flags=re.I)
+            parts, seen, kept = re.split(r"(?<=[.!?])\s+", gen), set(), []
+            for p in parts:
+                k = p.strip().lower()
+                if k and k not in seen:
+                    seen.add(k)
+                    kept.append(p)
+            gen = " ".join(kept[:1 if greet else 2]).strip()
+        return gen
+
+    def _generate(self, text):
+        # Direct reply (no tool). Rules -> tight sampling so it obeys; greetings -> resample a
+        # few times and keep the first that actually reads like a greeting.
+        temp, top_k = (0.2, 3) if self.rules else (0.4, 40)
         greet = text.lower().strip().rstrip("?.!") in GREET_IN
         best = ""
         for _ in range(3 if greet else 1):
-            out_ids = model.generate(torch.tensor([ids]), 50, temp=temp, top_k=top_k,
-                                     ban=ban)[0].tolist()
-            gen = coder.decode(out_ids[len(ids):])    # decode ONLY the new tokens (robust)
-            for cut in ("\nUSER", "\nBOT", "\nRULE", "USER:", "BOT:", "RULE:", '"', " '"):
-                if cut in gen:                        # quotes (incl. dialogue ') stop book-bleed
-                    gen = gen.split(cut)[0]
-            gen = gen.replace("\n", " ").strip()
-            # keep it short so it can't ramble into novel prose (greetings stay to one line)
-            if "reward:" not in gen:
-                # collapse the LM's occasional looped clause ("X, and X") and repeated sentences
-                gen = re.sub(r"\b(.{8,40}?),?\s+and\s+\1\b", r"\1", gen, flags=re.I)
-                parts, seen, kept = re.split(r"(?<=[.!?])\s+", gen), set(), []
-                for p in parts:
-                    k = p.strip().lower()
-                    if k and k not in seen:
-                        seen.add(k)
-                        kept.append(p)
-                gen = " ".join(kept[:1 if greet else 2]).strip()
+            gen = self._clean(self._raw(self._pre() + f"USER: {text}\nBOT: ", temp, top_k), greet)
             if not greet:
                 return gen or "..."
             best = best or gen
@@ -267,3 +274,25 @@ class Chat:
             if first in ("hi", "hello", "hey", "heya", "hiya", "howdy", "good", "yo"):
                 return gen
         return best or "..."
+
+    def _react(self, text):
+        """ReAct: let the model decide whether this turn needs a TOOL. If it emits a CALL we
+        RUN it (gm/tools.py) and feed the RESULT back for it to verbalise; otherwise it just
+        replies. The logic lives in code; the net only routes to it and phrases the answer."""
+        pre = self._pre()
+        # Stage 1: continue from the bare USER line (no forced BOT:) — a trained model emits
+        # either "CALL: ..." (needs a tool) or "BOT: ..." (just chat).
+        head = self._raw(pre + f"USER: {text}\n", temp=0.2, top_k=5, max_new=24)
+        m = re.match(r"\s*CALL:\s*([^\n]+)", head)
+        if not m:
+            return self._generate(text)           # no tool -> ordinary reply
+        call = m.group(1).strip()
+        result = self.tools.run(call)
+        if call.split()[:1] == ["reward"]:        # reward spec is authoritative — return exactly
+            return f"reward: {result}"
+        # knowledge call: let the model phrase the engine's result, fall back to a plain one
+        reply = self._clean(self._raw(
+            pre + f"USER: {text}\nCALL: {call}\nRESULT: {result}\nBOT: ", temp=0.3, top_k=20))
+        if reply:
+            return reply
+        return "hmm, I'm not sure." if result in ("error", "") else result

@@ -157,8 +157,25 @@ def main(subdir="modern", ckpt="apollo.pt", name="Apollo", iters=2500, threads=N
             hits += (g[:len(expect)] == expect)
         return hits / len(probes)
 
+    # --- tool-use probe: does it ROUTE a reward request to a CALL? (the ReAct skill). Held-out
+    # goals so it can't memorize. Returns 0 on corpora without tool-use data (harmless). ---
+    tool_reqs = ["design a reward system for {}", "make a reward for {}", "i want it to {}",
+                 "how should i reward {}", "give me a reward for {}", "set up a reward for {}"]
+    tool_goals = ["winning the race", "stacking the cups", "sorting the mail", "feeding the dog",
+                  "painting the fence", "climbing the rope", "catching the ball", "mopping up"]
+
+    def tool_gen():
+        ban = [unk_id] if unk_id is not None else None
+        hits = 0
+        for i, goal in enumerate(tool_goals):
+            ids = coder.encode(f"USER: {tool_reqs[i % len(tool_reqs)].format(goal)}\n")
+            o = model.generate(torch.tensor([ids]).to(device), 4, temp=0.1,
+                               top_k=1, ban=ban)[0].tolist()
+            hits += coder.decode(o[len(ids):]).strip().lower().startswith("call:")
+        return hits / len(tool_goals)
+
     t0 = time.time()
-    best = (-1.0, float("inf"))               # (generalization, -val): maximize gen, then min val
+    best = (-1.0, float("inf"))               # (gen+tool, -val): maximize skills, then min val
     amp = (device == "cuda")                  # fp16 mixed precision — big speedup on tensor-core GPUs (T4)
     scaler = torch.cuda.amp.GradScaler(enabled=amp)
     for it in range(1, iters + 1):
@@ -175,17 +192,18 @@ def main(subdir="modern", ckpt="apollo.pt", name="Apollo", iters=2500, threads=N
             with torch.no_grad():
                 vl = sum(model(*get_batch(val))[1].item() for _ in range(5)) / 5  # avg val
                 gen = rule_gen()
+                tool = tool_gen()
                 seed = torch.tensor([[coder.stoi.get("\n", 0)]]).to(device)
                 sample = coder.decode(model.generate(seed, 40, temp=0.8)[0][1:])
             star = ""
-            if (gen, -vl) > best:             # keep the checkpoint that GENERALIZES best
-                best = (gen, -vl)
+            if (gen + tool, -vl) > best:      # keep the checkpoint best at the SKILLS we want
+                best = (gen + tool, -vl)
                 model.to("cpu")
                 save(model, coder, stage_path)
                 model.to(device)
-                star = "  <- saved (best gen)"
+                star = "  <- saved (best)"
             print(f"\n--- [{name}] iter {it}  train {loss.item():.3f}  val {vl:.3f}  "
-                  f"gen {gen:.2f}  {time.time() - t0:.0f}s{star} ---")
+                  f"gen {gen:.2f}  tool {tool:.2f}  {time.time() - t0:.0f}s{star} ---")
             print(sample.replace("\n", " "))
             model.train()
     os.replace(stage_path, final_path)        # swap the best model in atomically

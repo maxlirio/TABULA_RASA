@@ -17,6 +17,8 @@ import os
 import random
 
 from gm.know import Knowledge, sing
+from gm.tools import build_reward
+from prep_rewards import GOALS, REQ, DIRECT, VAGUE
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -45,7 +47,7 @@ def vlist(xs):
     return xs[0] if len(xs) == 1 else ", ".join(xs[:-1]) + " and " + xs[-1]
 
 
-def main(n=12000, seed=11):
+def main(n=12000, reward_n=9000, seed=11):
     r = random.Random(seed)
     words = [w.strip().lower() for w in open(os.path.join(HERE, "common10k.txt"))]
     nouns = [w for w in words if w.isalpha() and 3 <= len(w) <= 9]
@@ -106,6 +108,25 @@ def main(n=12000, seed=11):
             lines.extend([f"USER: {nl}", f"CALL: {call}", f"RESULT: {res}", f"BOT: {rep}"])
 
         out.append("\n".join(lines))
+
+    # ---- reward TOOL: route a goal to the reward builder, then verbalise the spec. The RESULT
+    # is computed by the SAME build_reward() the runtime uses, so training and inference agree. ----
+    goal_phrases = [g for g, _ in GOALS]
+    for _ in range(reward_n):
+        if r.random() < 0.78:
+            g = r.choice(goal_phrases)
+            user = r.choice(REQ).format(g=g)
+            call = f"reward {g}"
+        else:
+            d = r.choice(list(DIRECT))
+            verb = r.choice(["make it", "teach it to", "i want it to", "get it to"])
+            user, call = f"{verb} {d}", f"reward {d}"
+        spec = build_reward(call.split(" ", 1)[1])
+        out.append(f"USER: {user}\nCALL: {call}\nRESULT: {spec}\nBOT: reward: {spec}")
+    # vague reward requests -> ASK for the goal (no tool call), so it doesn't guess blindly
+    for _ in range(max(1, reward_n // 20)):
+        u, b = r.choice(VAGUE)
+        out.append(f"USER: {u}\nBOT: {b}")
 
     r.shuffle(out)
     out_dir = os.path.join(HERE, "data", "tooluse")
