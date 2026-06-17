@@ -251,8 +251,15 @@ class Chat:
             gen = gen.replace("\n", " ").strip()
             # keep it short so it can't ramble into novel prose (greetings stay to one line)
             if "reward:" not in gen:
-                parts = re.split(r"(?<=[.!?])\s+", gen)
-                gen = " ".join(parts[:1 if greet else 2]).strip()
+                # collapse the LM's occasional looped clause ("X, and X") and repeated sentences
+                gen = re.sub(r"\b(.{8,40}?),?\s+and\s+\1\b", r"\1", gen, flags=re.I)
+                parts, seen, kept = re.split(r"(?<=[.!?])\s+", gen), set(), []
+                for p in parts:
+                    k = p.strip().lower()
+                    if k and k not in seen:
+                        seen.add(k)
+                        kept.append(p)
+                gen = " ".join(kept[:1 if greet else 2]).strip()
             if not greet:
                 return gen or "..."
             best = best or gen
