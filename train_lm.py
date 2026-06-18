@@ -157,22 +157,28 @@ def main(subdir="modern", ckpt="apollo.pt", name="Apollo", iters=2500, threads=N
             hits += (g[:len(expect)] == expect)
         return hits / len(probes)
 
-    # --- tool-use probe: does it ROUTE a reward request to a CALL? (the ReAct skill). Held-out
-    # goals so it can't memorize. Returns 0 on corpora without tool-use data (harmless). ---
+    # --- tool-use probe: does it know WHEN to call a tool? Measures BOTH recall (emit CALL on a
+    # real request) AND precision (do NOT emit CALL on plain chat). Held-out items so it can't
+    # memorize. Returns ~0.5 on corpora without tool-use data (no calls -> all negatives right). ---
     tool_reqs = ["design a reward system for {}", "make a reward for {}", "i want it to {}",
-                 "how should i reward {}", "give me a reward for {}", "set up a reward for {}"]
-    tool_goals = ["winning the race", "stacking the cups", "sorting the mail", "feeding the dog",
-                  "painting the fence", "climbing the rope", "catching the ball", "mopping up"]
+                 "how should i reward {}", "give me a reward for {}", "what is {}"]
+    tool_pos = ["winning the race", "stacking the cups", "sorting the mail", "feeding the dog",
+                "painting the fence", "climbing the rope", "catching the ball", "47 times 6"]
+    tool_neg = ["i have three cats at home", "i went running this morning", "how are you today",
+                "i love a sunny day", "tell me a story", "my favorite color is blue",
+                "i'm feeling a bit tired", "we have 5 people coming over"]
+
+    def _calls(text):
+        ids = coder.encode(f"USER: {text}\n")
+        ban = [unk_id] if unk_id is not None else None
+        o = model.generate(torch.tensor([ids]).to(device), 4, temp=0.1,
+                           top_k=1, ban=ban)[0].tolist()
+        return coder.decode(o[len(ids):]).strip().lower().startswith("call:")
 
     def tool_gen():
-        ban = [unk_id] if unk_id is not None else None
-        hits = 0
-        for i, goal in enumerate(tool_goals):
-            ids = coder.encode(f"USER: {tool_reqs[i % len(tool_reqs)].format(goal)}\n")
-            o = model.generate(torch.tensor([ids]).to(device), 4, temp=0.1,
-                               top_k=1, ban=ban)[0].tolist()
-            hits += coder.decode(o[len(ids):]).strip().lower().startswith("call:")
-        return hits / len(tool_goals)
+        hits = sum(_calls(tool_reqs[i % len(tool_reqs)].format(g)) for i, g in enumerate(tool_pos))
+        hits += sum(not _calls(neg) for neg in tool_neg)     # reward NOT calling on chat
+        return hits / (len(tool_pos) + len(tool_neg))
 
     t0 = time.time()
     best = (-1.0, float("inf"))               # (gen+tool, -val): maximize skills, then min val

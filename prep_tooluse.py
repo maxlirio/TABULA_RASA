@@ -47,7 +47,7 @@ def vlist(xs):
     return xs[0] if len(xs) == 1 else ", ".join(xs[:-1]) + " and " + xs[-1]
 
 
-def main(n=12000, reward_n=9000, calc_n=9000, seed=11):
+def main(n=12000, reward_n=9000, calc_n=9000, contrast_n=8000, seed=11):
     r = random.Random(seed)
     words = [w.strip().lower() for w in open(os.path.join(HERE, "common10k.txt"))]
     nouns = [w for w in words if w.isalpha() and 3 <= len(w) <= 9]
@@ -142,6 +142,29 @@ def main(n=12000, reward_n=9000, calc_n=9000, seed=11):
             continue
         out.append(f"USER: {r.choice(ASK_MATH).format(e=expr)}\nCALL: calc {a} {sym} {b}\n"
                    f"RESULT: {ans}\nBOT: that's {ans}.")
+
+    # ---- CONTRAST: turns that LOOK tool-ish (numbers, goal words) but are NOT requests, so the
+    # model learns WHEN to call vs. when to just chat. Same weight as the tool data => a real
+    # decision boundary, not a reflex to CALL whenever it sees a number or a verb. ----
+    things = ["cats", "dogs", "books", "plants", "friends", "cups", "songs", "siblings", "plants"]
+    acts = ["jumping", "running", "cleaning my room", "cooking dinner", "painting", "swimming",
+            "dancing", "reading", "hiking", "drawing", "studying", "gardening", "baking"]
+    num_ctx = ["i have {n} {th}", "i'm {n} years old", "there were {n} people there",
+               "i read {n} pages today", "we walked {n} miles", "i have {n} dollars left",
+               "my team scored {n} points", "i slept {n} hours", "it's {n} degrees out",
+               "i've got {n} {th}", "the recipe needs {n} eggs"]
+    act_ctx = ["i went {a} today", "i love {a}", "i was {a} earlier", "i really enjoy {a}",
+               "i'm thinking about {a} later", "{a} is my favorite thing", "i'm tired from {a}"]
+    backs = ["nice!", "that's cool.", "sounds fun!", "good for you.", "oh nice.", "love that.",
+             "that sounds nice.", "awesome, how was it?", "ha, that's great.", "neat!",
+             "sounds like a good time.", "cool, tell me more.", "that's wonderful.",
+             "oh that's lovely.", "sounds relaxing.", "i bet that felt good."]
+    for _ in range(contrast_n):
+        if r.random() < 0.5:
+            u = r.choice(num_ctx).format(n=r.randint(2, 60), th=r.choice(things))
+        else:
+            u = r.choice(act_ctx).format(a=r.choice(acts))
+        out.append(f"USER: {u}\nBOT: {r.choice(backs)}")
 
     r.shuffle(out)
     out_dir = os.path.join(HERE, "data", "tooluse")
