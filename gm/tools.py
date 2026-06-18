@@ -10,12 +10,78 @@ result into natural language. That's the whole point: reliability from code, flu
   CALL: ask <s> <rel> <o>       -> is it true?                -> "yes" | "no"
   CALL: profile <s>             -> what is <s>                -> "isa a,b" | "nothing"
   CALL: reward <goal...>        -> build a reward spec        -> "+term -term ..."
+  CALL: calc <expression>       -> evaluate arithmetic        -> the number | "error"
 
 The reward builder is COMPOSITIONAL: it matches a domain template, then layers on modifiers
 ("safely", "fast", "without spilling"). Unlike the net's nearest-neighbour guess it is exact,
 extensible (add a line), and degrades gracefully on an unknown goal instead of guessing wrong.
+The calculator is exact arithmetic (a tiny LM cannot do reliable math) via a SAFE evaluator.
 """
+import ast
+import math
+import operator
 import re
+
+# ---- calculator: exact arithmetic via a safe AST evaluator (no eval(), no names/attrs) ----
+_BINOPS = {ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul,
+           ast.Div: operator.truediv, ast.Pow: operator.pow, ast.Mod: operator.mod,
+           ast.FloorDiv: operator.floordiv}
+_UNOPS = {ast.USub: operator.neg, ast.UAdd: operator.pos}
+_FUNCS = {"sqrt": math.sqrt, "abs": abs, "round": round, "log": math.log,
+          "log10": math.log10, "ln": math.log, "exp": math.exp, "floor": math.floor,
+          "ceil": math.ceil, "factorial": math.factorial,
+          "sin": math.sin, "cos": math.cos, "tan": math.tan}
+_CONSTS = {"pi": math.pi, "e": math.e}
+
+
+def _eval_node(node):
+    if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+        return node.value
+    if isinstance(node, ast.BinOp) and type(node.op) in _BINOPS:
+        return _BINOPS[type(node.op)](_eval_node(node.left), _eval_node(node.right))
+    if isinstance(node, ast.UnaryOp) and type(node.op) in _UNOPS:
+        return _UNOPS[type(node.op)](_eval_node(node.operand))
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in _FUNCS:
+        return _FUNCS[node.func.id](*[_eval_node(a) for a in node.args])
+    if isinstance(node, ast.Name) and node.id in _CONSTS:
+        return _CONSTS[node.id]
+    raise ValueError("unsupported")
+
+
+def _normalize_math(expr):
+    """Turn natural-language arithmetic into a Python expression string."""
+    e = " " + expr.lower().strip().rstrip("?=. ") + " "   # keep '!' (factorial)
+    e = re.sub(r"\b(what'?s|what is|whats|calculate|compute|how much is|how many is|solve|"
+               r"the answer to|tell me|please|equals?|equal to)\b", " ", e)
+    e = re.sub(r"(\d),(\d)", r"\1\2", e)                       # 1,000 -> 1000
+    e = re.sub(r"\bsquare root of\s*", " sqrt ", e)
+    e = re.sub(r"\bsqrt\s+(\d)", r" sqrt(\1", e)              # sqrt 16 -> sqrt(16  (close below)
+    e = re.sub(r"\b(plus|and added to|added to)\b", "+", e)
+    e = re.sub(r"\b(minus|subtract|less)\b", "-", e)
+    e = re.sub(r"\b(times|multiplied by)\b", "*", e)
+    e = re.sub(r"\b(divided by|over)\b", "/", e)
+    e = re.sub(r"\bto the power of\b", "**", e)
+    e = re.sub(r"\bmod(ulo)?\b", "%", e)
+    e = re.sub(r"\bsquared\b", "**2", e)
+    e = re.sub(r"\bcubed\b", "**3", e)
+    e = e.replace("^", "**")
+    e = re.sub(r"(\d+(?:\.\d+)?)\s*%\s*of\s*", r"(\1/100)*", e)   # 20% of 80
+    e = re.sub(r"(\d+(?:\.\d+)?)\s*%", r"(\1/100)", e)            # bare 30%
+    e = re.sub(r"(\d)\s*x\s*(\d)", r"\1*\2", e)                  # 3 x 4 -> 3*4
+    e = re.sub(r"(\d+)\s*!", r"factorial(\1)", e)               # 5! -> factorial(5)
+    if e.count("(") > e.count(")"):                             # close sqrt( etc.
+        e += ")" * (e.count("(") - e.count(")"))
+    return e.strip()
+
+
+def calc(expr):
+    try:
+        val = _eval_node(ast.parse(_normalize_math(expr), mode="eval").body)
+        if isinstance(val, float):
+            val = int(val) if val.is_integer() else round(val, 6)
+        return str(val)
+    except Exception:
+        return "error"
 
 # domain keyword (matched as a whole word) -> core reward terms. First match wins; order
 # matters only where one keyword is a substring concept of another, so list specifics first.
@@ -205,6 +271,8 @@ class Tools:
                 return "isa " + ",".join(parents) if parents else "nothing"
             if op == "reward" and args:
                 return build_reward(" ".join(args))
+            if op == "calc" and args:
+                return calc(" ".join(args))
         except Exception:
             return "error"
         return "error"

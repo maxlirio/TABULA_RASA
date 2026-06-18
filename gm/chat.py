@@ -324,10 +324,32 @@ class Chat:
             return ""                              # reward request with no goal -> ask
         return None
 
+    _MATH_WORDS = ("plus", "minus", "times", "divided", "multiplied", "squared", "cubed",
+                   "power", "sqrt", "square root", "factorial", "percent", "subtract")
+
+    def _math_intent(self, text):
+        """INTERIM bridge: detect an arithmetic question and pull out the expression. Requires a
+        digit AND an operator (symbol or math word) so 'i have 2 cats' isn't treated as math.
+        Returns the expression, or None. Superseded once the model emits `CALL: calc ...`."""
+        t = text.lower().strip().rstrip("?.")
+        if not re.search(r"\d", t):
+            return None
+        has_op = (re.search(r"[+\-*/^%]", t) or re.search(r"\d\s*x\s*\d", t)
+                  or re.search(r"\d\s*!", t) or any(w in t for w in self._MATH_WORDS))
+        if not has_op:
+            return None
+        return re.sub(r"^(what'?s|what is|whats|calculate|compute|how much is|how many is|"
+                      r"solve|tell me|please)\s+", "", t).strip() or t
+
     def _react(self, text):
         """ReAct: let the model decide whether this turn needs a TOOL. If it emits a CALL we
         RUN it (gm/tools.py) and feed the RESULT back for it to verbalise; otherwise it just
         replies. The logic lives in code; the net only routes to it and phrases the answer."""
+        expr = self._math_intent(text)             # interim: route math to the calculator now
+        if expr is not None:
+            ans = self.tools.run("calc " + expr)
+            if ans != "error":                     # if it doesn't parse, fall through to chat
+                return ans
         goal = self._reward_intent(text)           # interim: route reward asks to the tool now
         if goal is not None:
             if not goal:

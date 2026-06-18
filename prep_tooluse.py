@@ -17,7 +17,7 @@ import os
 import random
 
 from gm.know import Knowledge, sing
-from gm.tools import build_reward
+from gm.tools import build_reward, calc
 from prep_rewards import GOALS, REQ, DIRECT, VAGUE
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -47,7 +47,7 @@ def vlist(xs):
     return xs[0] if len(xs) == 1 else ", ".join(xs[:-1]) + " and " + xs[-1]
 
 
-def main(n=12000, reward_n=9000, seed=11):
+def main(n=12000, reward_n=9000, calc_n=9000, seed=11):
     r = random.Random(seed)
     words = [w.strip().lower() for w in open(os.path.join(HERE, "common10k.txt"))]
     nouns = [w for w in words if w.isalpha() and 3 <= len(w) <= 9]
@@ -127,6 +127,21 @@ def main(n=12000, reward_n=9000, seed=11):
     for _ in range(max(1, reward_n // 20)):
         u, b = r.choice(VAGUE)
         out.append(f"USER: {u}\nBOT: {b}")
+
+    # ---- calculator TOOL: a tiny LM can't do reliable arithmetic, so it learns to CALL calc.
+    # RESULT computed by the same calc() the runtime uses, so training and inference agree. ----
+    ASK_MATH = ["what is {e}", "what's {e}", "calculate {e}", "{e}", "how much is {e}",
+                "compute {e}", "solve {e}", "what does {e} equal"]
+    ops = [("+", "plus"), ("-", "minus"), ("*", "times"), ("/", "divided by")]
+    for _ in range(calc_n):
+        sym, word = r.choice(ops)
+        a, b = r.randint(2, 99), r.randint(2, 50)
+        expr = f"{a} {sym} {b}" if r.random() < 0.5 else f"{a} {word} {b}"
+        ans = calc(expr)
+        if ans == "error":
+            continue
+        out.append(f"USER: {r.choice(ASK_MATH).format(e=expr)}\nCALL: calc {a} {sym} {b}\n"
+                   f"RESULT: {ans}\nBOT: that's {ans}.")
 
     r.shuffle(out)
     out_dir = os.path.join(HERE, "data", "tooluse")
