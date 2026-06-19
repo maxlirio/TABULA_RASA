@@ -13,8 +13,6 @@ import json
 import os
 import re
 
-import torch
-
 from gm.know import Knowledge
 from gm.tools import Tools
 
@@ -385,12 +383,11 @@ class Chat:
 
     def _raw(self, seed, temp, top_k, max_new=50):
         """Sample the model from a seed and return ONLY the newly generated text (with newlines
-        intact, so a CALL line can be parsed)."""
+        intact, so a CALL line can be parsed). Backend-agnostic via model.gen_ids."""
         model, coder = self.voices[self.voice]
         ids = coder.encode(seed) or [coder.stoi.get("\n", 0)]
-        out = model.generate(torch.tensor([ids]), max_new, temp=temp, top_k=top_k,
-                             ban=self._ban(coder))[0].tolist()
-        return coder.decode(out[len(ids):])
+        new = model.gen_ids(ids, max_new, temp=temp, top_k=top_k, ban=self._ban(coder))
+        return coder.decode(new)
 
     def _clean(self, gen, greet=False):
         """Trim a BOT reply to a sentence or two, kill transcript markers, book-quote bleed,

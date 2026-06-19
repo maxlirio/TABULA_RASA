@@ -67,6 +67,12 @@ class CharLM(nn.Module):
             loss = F.cross_entropy(logits.view(-1, self.vocab), targets.view(-1))
         return logits, loss
 
+    def gen_ids(self, ids, n, temp=0.4, top_k=40, ban=None):
+        """Backend-agnostic interface used by chat.py: take a list of token ids, return ONLY the
+        newly generated ids. (The NumPy model in gm/lm_np.py exposes the same method.)"""
+        out = self.generate(torch.tensor([ids]), n, temp=temp, top_k=top_k, ban=ban)[0].tolist()
+        return out[len(ids):]
+
     @torch.no_grad()
     def generate(self, idx, n, temp=0.8, top_k=40, ban=None):
         self.eval()
