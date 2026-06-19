@@ -34,6 +34,40 @@ FORGET = ("forget everything", "forget it all", "clear your memory", "wipe your 
 GREET_IN = ("hi", "hello", "hey", "heya", "hiya", "howdy", "yo", "hi there", "hey there",
             "good morning", "good afternoon", "good evening", "greetings", "sup", "hello there")
 
+# --- a grounded SENSE OF SELF: what it IS / CAN do / CANNOT do. Stated facts, not generated,
+# so it stops confabulating a persona ("i'm going to the hospital"). Same idea as the tools:
+# reliability from code, not from the net guessing. ---
+SELF_IS = ("a small language model that runs right here on your computer. i was built from "
+           "scratch - there's no big AI inside me, just a little neural network plus some "
+           "reliable tools")
+SELF_CAN = ["chat with you", "remember your name and facts you teach me", "learn word definitions",
+            "do math", "tell the date and time", "answer questions about things you've taught me",
+            "turn a goal into a reward spec"]
+CAN_HINT = ("math", "calculat", "add", "subtract", "multipl", "divide", "count", "remember",
+            "recall", "learn", "defin", "time", "date", "day", "year", "reward", "answer",
+            "help", "chat", "talk", "chitchat")
+CANNOT_HINT = ("see", "watch", "look", "hear", "listen", "go ", "going", "walk", "drive",
+               "travel", "fly", "eat", "drink", "sleep", "feel", "touch", "smell", "taste",
+               "browse", "internet", "web", "google", "online", "phone", "call", "email",
+               "text someone", "buy", "cook", "sing", "move", "leave", "visit", "meet", "come over")
+# worldly first-person claims a program can't truthfully make -> confabulation to suppress.
+# (good first-person like "i'm good", "i like", "i can help", "i don't know" is NOT matched.)
+CONFAB = [re.compile(p) for p in (
+    r"\bi (?:'?m|am) going (to|back)\b(?!\s+(help|tell|show|try|make|answer|remember|be|do|give|"
+    r"teach|guess|say|keep|let|find|get better|need))",
+    r"\bi (went|drove|walked|flew|traveled|rode|ran|drove) (to|home|back|down|up|over|into)\b",
+    r"\bi (have|had|'?ve got|got) (a|an|my|two|three|four|\d+) (brother|sister|mother|father|"
+    r"mom|dad|son|daughter|wife|husband|family|dog|cat|car|house|home|job|boss|baby|child|kid)\b",
+    r"\bmy (mother|father|mom|dad|wife|husband|brother|sister|son|daughter|family|house|car|"
+    r"job|boss|teacher|doctor|parents|grandmother|grandfather|childhood)\b",
+    r"\bwhen i was (young|little|a (kid|child|boy|girl|baby|student|teenager))\b",
+    r"\bi was born\b", r"\bi grew up\b", r"\bi (live|lived) (in|at|near|on)\b",
+    r"\bi (ate|drank|bought|sold|cooked|wore|met|visited|married|kissed)\b",
+    r"\bi (?:'?m|am) (at|in) (the|my|a) (hospital|store|school|office|house|home|park|car|"
+    r"kitchen|bed|doctor|work)\b",
+    r"\bi (have|need|'?ve got) to (go|leave|run|get going|get back|head out|head home)\b",
+)]
+
 
 class Chat:
     def __init__(self, voices, voice, path):
@@ -93,7 +127,8 @@ class Chat:
 
     def _route(self, text):
         # 1) ANSWERS that must be accurate stay deterministic (this is "the logic").
-        for fn in (self._recall, self._history_intent, self._define_intent, self.know.ask):
+        for fn in (self._recall, self._self_intent, self._history_intent,
+                   self._define_intent, self.know.ask):
             r = fn(text)
             if r is not None:
                 return r
@@ -129,7 +164,7 @@ class Chat:
         if t in RECALL_NAME_ME:
             return (f"You're {self.user_name}." if self.user_name
                     else "I don't know your name yet - tell me 'my name is ...'.")
-        if t in RECALL_NAME_YOU or t == "who are you":
+        if t in RECALL_NAME_YOU:                  # "who/what are you" -> _self_intent (richer)
             who = f"I'm {self.bot_name}." if self.bot_name else "I don't have a name yet."
             if self.persona:
                 who += f" I'm acting as {self.persona}."
@@ -152,6 +187,62 @@ class Chat:
             return ("I remember " + "; and ".join(bits) + ".") if bits \
                 else "I don't have anything saved yet."
         return None
+
+    # --- sense of SELF: answer questions about what it is / can do / has done, from grounded
+    #     facts instead of letting the model invent a persona ----------------------------------
+    def _self_intent(self, text):
+        t = text.lower().strip().rstrip("?.!")
+        me = self.bot_name or "Apollo"
+        # identity: what/who are you, are you an ai/human/real/alive...
+        if (t in ("what are you", "who are you", "what is this", "what're you")
+                or re.search(r"\bare you (an? )?(ai|a\.i\.|robot|human|person|real|alive|a bot|"
+                             r"a computer|a program|a machine|conscious|sentient|a chatbot)\b", t)
+                or re.search(r"\bwhat (kind of (thing|program|ai) )?are you$", t)):
+            base = f"i'm {me}, {SELF_IS}."
+            if self.persona:
+                base += f" right now i'm acting as {self.persona}."
+            return base
+        # capabilities (general)
+        if re.search(r"\b(what can you do|what do you do|how can you help|what are you able to do|"
+                     r"what are your (abilities|capabilities|skills)|what can i ask you)\b", t):
+            return "i can " + ", ".join(SELF_CAN[:-1]) + ", and " + SELF_CAN[-1] + "."
+        # "can you X" -> answer from real abilities, not a guess
+        m = re.match(r"^(?:can|could|are you able to|do you know how to) (?:you )?(.+)$", t)
+        if m:
+            x = m.group(1).strip()
+            if any(h in x for h in CAN_HINT):
+                return "yes, that's something i can do - just ask."
+            if any(h in x for h in CANNOT_HINT):
+                return ("no - i can't do that. i'm just a program on your computer, with no body "
+                        "and no internet. but i can chat, do math, remember things, and more.")
+        # embodiment / having things
+        m = re.search(r"\bdo you have (?:a |an |any )?(body|face|feelings|emotions|a family|"
+                      r"parents|a (?:brother|sister|mother|father|mom|dad|pet|dog|cat|home|house|"
+                      r"job|heart|soul|name)|friends|hands|eyes|ears|legs)\b", t)
+        if m and "name" not in m.group(1):
+            return ("no, i don't - i'm a program, not a living thing. i only exist here in this "
+                    "chat, on your computer.")
+        # location / origin
+        if re.search(r"\bwhere (do you (live|come from)|are you (from|located)?)\b", t):
+            return "i live right here on your computer - i don't exist anywhere else."
+        # age / appearance
+        if re.search(r"\bhow old are you\b|\bwhat'?s your age\b|\bwhen were you born\b", t):
+            return ("i don't have an age - i'm a program. i only know what's happened since we "
+                    "started talking.")
+        if re.search(r"\bwhat do you look like\b|\bwhat'?s your appearance\b", t):
+            return "i don't have a body or a face - i'm just text running on your computer."
+        # episodic: what are you doing / what have you done
+        if re.search(r"\bwhat (are you doing|have you done|did you do)\b", t):
+            said = sum(1 for r, _ in self.session if r == "USER")
+            tail = f" so far you've told me {said} thing(s) this chat." if said else ""
+            return "right now i'm just here chatting with you." + tail
+        return None
+
+    def _confabulates(self, reply):
+        """True if the reply is a worldly first-person claim a program can't truthfully make
+        (the 'i'm going to the hospital' problem)."""
+        low = reply.lower()
+        return any(p.search(low) for p in CONFAB)
 
     # --- transcript recall ("what was the first thing I said this chat?") ---
     def _history_intent(self, text):
@@ -297,15 +388,19 @@ class Chat:
         temp, top_k = (0.2, 3) if self.rules else (0.4, 40)
         greet = text.lower().strip().rstrip("?.!") in GREET_IN
         best = ""
-        for _ in range(3 if greet else 1):
+        for _ in range(3):                         # a few tries: skip confabulation / greeting whiffs
             gen = self._clean(self._raw(self._pre() + f"USER: {text}\nBOT: ", temp, top_k), greet)
-            if not greet:
-                return gen or "..."
-            best = best or gen
-            first = (gen.lower().split() or [""])[0].strip(".!,")
-            if first in ("hi", "hello", "hey", "heya", "hiya", "howdy", "good", "yo"):
-                return gen
-        return best or "..."
+            if not gen or self._confabulates(gen):  # don't let it invent a worldly self
+                continue
+            if greet:
+                first = (gen.lower().split() or [""])[0].strip(".!,")
+                if first not in ("hi", "hello", "hey", "heya", "hiya", "howdy", "good", "yo"):
+                    best = best or gen
+                    continue
+            return gen
+        # everything tried was empty/confabulated -> honest, grounded fallback
+        return best or ("honestly, i'm just a small program here in this chat - i don't have a "
+                        "life outside it. what would you like to talk about?")
 
     def _reward_intent(self, text):
         """INTERIM bridge: detect an explicit reward request by pattern and pull out the goal.
