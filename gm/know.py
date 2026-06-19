@@ -280,8 +280,11 @@ class Knowledge:
             if objs:
                 return f"{art(norm(m.group(1))).capitalize()} can " + ", ".join(objs) + "."
 
+        # find-queries: skip conversational/pronoun phrasings ("what can you do") so they go
+        # to the model instead of becoming a literal "Nothing I know of can you do."
+        _PRON = ("you", "i", "we", "they", "he", "she", "it", "u", "ya")
         m = re.match(r"^(?:what|who) has (?:a |an )?(.+)$", low)
-        if m:
+        if m and m.group(1).strip().split()[0] not in _PRON:
             obj = norm(m.group(1), sg=False)
             subs = self.subjects_with("has", obj)
             if subs:
@@ -289,7 +292,8 @@ class Knowledge:
             return f"Nothing I know of has {obj}."
 
         m = re.match(r"^(?:what|who) can (.+)$", low)
-        if m:
+        if (m and m.group(1).strip().split()[0] not in _PRON
+                and not m.group(1).strip().endswith(" do")):   # "what can X do" -> not a find
             act = m.group(1).strip()
             subs = self.subjects_with("can", act)
             if subs:

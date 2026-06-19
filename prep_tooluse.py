@@ -143,6 +143,25 @@ def main(n=12000, reward_n=9000, calc_n=9000, contrast_n=8000, seed=11):
         out.append(f"USER: {r.choice(ASK_MATH).format(e=expr)}\nCALL: calc {a} {sym} {b}\n"
                    f"RESULT: {ans}\nBOT: that's {ans}.")
 
+    # ---- date/time TOOL: a model can't know the clock, so it learns to CALL date/time and
+    # verbalise the RESULT. Results are VARIED (random dates/times) so it learns to echo the
+    # tool's output, not memorize one date. ----
+    DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+    MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august",
+              "september", "october", "november", "december"]
+    for _ in range(max(1, calc_n // 3)):
+        if r.random() < 0.55:
+            d = (f"{r.choice(DAYS)}, {r.choice(MONTHS)} {r.randint(1, 28)}, "
+                 f"{r.randint(2024, 2031)}").title()
+            u = r.choice(["what day is it", "what's the date", "what is today's date",
+                          "what day is it today", "what's today's date"])
+            out.append(f"USER: {u}\nCALL: date\nRESULT: {d}\nBOT: it's {d}.")
+        else:
+            tm = f"{r.randint(1, 12)}:{r.randint(0, 59):02d} {r.choice(['am', 'pm'])}"
+            u = r.choice(["what time is it", "what's the time", "do you know the time",
+                          "what time is it now"])
+            out.append(f"USER: {u}\nCALL: time\nRESULT: {tm}\nBOT: it's {tm}.")
+
     # ---- CONTRAST: turns that LOOK tool-ish (numbers, goal words) but are NOT requests, so the
     # model learns WHEN to call vs. when to just chat. Same weight as the tool data => a real
     # decision boundary, not a reflex to CALL whenever it sees a number or a verb. ----

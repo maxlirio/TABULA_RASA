@@ -21,6 +21,20 @@ import ast
 import math
 import operator
 import re
+from datetime import datetime
+
+
+def now_date():
+    d = datetime.now()
+    return d.strftime("%A, %B ") + str(d.day) + d.strftime(", %Y")   # portable, no zero-pad
+
+
+def now_time():
+    return datetime.now().strftime("%I:%M %p").lstrip("0")
+
+
+def now_year():
+    return str(datetime.now().year)
 
 # ---- calculator: exact arithmetic via a safe AST evaluator (no eval(), no names/attrs) ----
 _BINOPS = {ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul,
@@ -273,6 +287,12 @@ class Tools:
                 return build_reward(" ".join(args))
             if op == "calc" and args:
                 return calc(" ".join(args))
+            if op == "date":
+                return now_date()
+            if op == "time":
+                return now_time()
+            if op == "year":
+                return now_year()
         except Exception:
             return "error"
         return "error"

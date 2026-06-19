@@ -341,10 +341,26 @@ class Chat:
         return re.sub(r"^(what'?s|what is|whats|calculate|compute|how much is|how many is|"
                       r"solve|tell me|please)\s+", "", t).strip() or t
 
+    def _datetime_intent(self, text):
+        """INTERIM bridge: detect a date/time/year question. Superseded once the model emits
+        `CALL: date|time|year` itself."""
+        t = text.lower().strip().rstrip("?.!")
+        if "time is it" in t or re.search(r"what'?s the time|current time|the time now", t):
+            return "time"
+        if re.search(r"what year is it|what'?s the year|current year", t):
+            return "year"
+        if re.search(r"what day is it|what'?s the date|what is the date|what day is today|"
+                     r"what'?s today'?s date|what is today'?s date|what'?s the day today", t):
+            return "date"
+        return None
+
     def _react(self, text):
         """ReAct: let the model decide whether this turn needs a TOOL. If it emits a CALL we
         RUN it (gm/tools.py) and feed the RESULT back for it to verbalise; otherwise it just
         replies. The logic lives in code; the net only routes to it and phrases the answer."""
+        dt = self._datetime_intent(text)           # interim: route date/time to the clock now
+        if dt is not None:
+            return f"it's {self.tools.run(dt)}."
         expr = self._math_intent(text)             # interim: route math to the calculator now
         if expr is not None:
             ans = self.tools.run("calc " + expr)
