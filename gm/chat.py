@@ -84,6 +84,7 @@ class Chat:
         self.asked = set()            # curiosity questions already asked (don't repeat)
         self.rules = []               # standing instructions for THIS session (fed to the model)
         self.defs = {}                # word -> definition the USER taught it
+        self._trace = ""              # how the LAST answer was produced (for "why did you say that")
         self._cooldown = 0            # rate-limit proactive questions (not after every turn)
         self._load()
         self.tools = Tools(self.know)  # executes the CALLs the model emits (see gm/tools.py)
@@ -126,24 +127,37 @@ class Chat:
         return out
 
     def _route(self, text):
-        # 1) ANSWERS that must be accurate stay deterministic (this is "the logic").
-        for fn in (self._recall, self._self_intent, self._history_intent,
-                   self._define_intent, self.know.ask):
+        # 0) "why did you say that?" -> explain how the LAST answer was actually produced.
+        r = self._explain_intent(text)
+        if r is not None:
+            return r
+        # 1) ANSWERS that must be accurate stay deterministic (this is "the logic"). Each route
+        #    records WHY it answered (self._trace) so the bot can truthfully explain itself.
+        for fn, why in ((self._recall, "that came from my saved memory (you told me earlier)."),
+                        (self._self_intent, "that's a grounded fact about what i am, not a guess."),
+                        (self._history_intent, "i read that back from this chat's transcript."),
+                        (self._define_intent, "i looked that up in my dictionary or what you taught me."),
+                        (self.know.ask, "i worked that out from the facts you've taught me.")):
             r = fn(text)
             if r is not None:
+                self._trace = why
                 return r
         # 1b) Learn a DEFINITION the user gives ("X means ...") — before the fact-engine, which
         #     would otherwise mis-store it. Stored so "what does X mean" returns it.
         if self._learn_definition(text):
-            return self._react(text)         # natural acknowledgement from the model
+            ack = self._react(text)          # natural acknowledgement from the model
+            self._trace = "you taught me a definition, so i saved it to my dictionary."
+            return ack
         # 2) Learn a fact: store it silently, react naturally. It does NOT pester with a
         #    question after every fact — it only wonders out loud when explicitly asked
         #    ("what are you curious about"), and only about things it genuinely can't infer.
         taught = self.know.teach(text)
         if taught is not None:
             if "contradict" in taught.lower() or "can't be right" in taught.lower():
+                self._trace = "that clashed with a fact i already had, so i flagged it."
                 return taught
             ack = self._generate(text)
+            self._trace = "you taught me a fact, so i stored it in my knowledge."
             # proactively wonder — but only a GENUINE question, and not every single turn
             if self._cooldown <= 0:
                 q = self.know.curiosity(recent=self.know.last, asked=self.asked)
@@ -236,6 +250,21 @@ class Chat:
             said = sum(1 for r, _ in self.session if r == "USER")
             tail = f" so far you've told me {said} thing(s) this chat." if said else ""
             return "right now i'm just here chatting with you." + tail
+        return None
+
+    def _explain_intent(self, text):
+        """Explain how the LAST answer was actually produced — from the real code path, not a
+        made-up story. The honest part: it distinguishes 'I looked this up' from 'I generated
+        this (a guess)'. This is grounded introspection, not confabulated reasoning."""
+        t = text.lower().strip().rstrip("?.!")
+        triggers = ("why", "why is that", "how come", "how do you know", "how do you know that",
+                    "how did you know", "how did you know that", "what made you say that",
+                    "explain that", "explain yourself", "explain your answer", "says who",
+                    "explain your reasoning", "explain your thinking", "how do you figure")
+        if (t in triggers or t.startswith("why did you say") or t.startswith("why'd you say")
+                or t.startswith("why do you say") or t.startswith("how do you know")):
+            return ("here's how i got my last answer: " + self._trace) if self._trace \
+                else "ask me something first, then i can explain how i answered it."
         return None
 
     def _confabulates(self, reply):
@@ -385,6 +414,10 @@ class Chat:
     def _generate(self, text):
         # Direct reply (no tool). Rules -> tight sampling so it obeys; greetings -> resample a
         # few times and keep the first that actually reads like a greeting.
+        # honest trace: a model-generated reply is NOT grounded in a tool or fact — it's the net
+        # trying to sound natural, so the truthful explanation is that it's a guess.
+        self._trace = ("i generated that with my language model - that's me trying to sound natural, "
+                       "not something i looked up, so it's more of a guess than a fact.")
         temp, top_k = (0.2, 3) if self.rules else (0.4, 40)
         greet = text.lower().strip().rstrip("?.!") in GREET_IN
         best = ""
@@ -455,16 +488,20 @@ class Chat:
         replies. The logic lives in code; the net only routes to it and phrases the answer."""
         dt = self._datetime_intent(text)           # interim: route date/time to the clock now
         if dt is not None:
+            self._trace = "i read the clock/calendar on your computer - that's a tool, not a guess."
             return f"it's {self.tools.run(dt)}."
         expr = self._math_intent(text)             # interim: route math to the calculator now
         if expr is not None:
             ans = self.tools.run("calc " + expr)
             if ans != "error":                     # if it doesn't parse, fall through to chat
+                self._trace = f"i ran it through my calculator tool ({expr.strip()} = {ans}) - exact, not guessed."
                 return ans
         goal = self._reward_intent(text)           # interim: route reward asks to the tool now
         if goal is not None:
             if not goal:
                 return "a reward for what? tell me the goal and i'll build it."
+            self._trace = ("you asked for a reward, so i ran my reward tool on the goal; it matched "
+                           "a known pattern and built those terms in code - not a guess.")
             return f"reward: {self.tools.run('reward ' + goal)}"
         pre = self._pre()
         # Stage 1: continue from the bare USER line (no forced BOT:) — a trained model emits
