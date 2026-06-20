@@ -110,14 +110,26 @@ def main(n=12000, reward_n=9000, calc_n=9000, contrast_n=8000, seed=11):
         out.append("\n".join(lines))
 
     # ---- reward TOOL: route a goal to the reward builder, then verbalise the spec. The RESULT
-    # is computed by the SAME build_reward() the runtime uses, so training and inference agree. ----
+    # is computed by the SAME build_reward() the runtime uses, so training and inference agree.
+    # A big share uses RANDOM goals (verb + noun) so the model learns to CALL with the user's
+    # literal goal for ANY request, instead of freelancing a spec on goals it never saw. ----
     goal_phrases = [g for g, _ in GOALS]
+    nouns = [w.strip().lower() for w in open(os.path.join(HERE, "common10k.txt"))
+             if w.strip().isalpha() and 3 <= len(w.strip()) <= 9]
+    GERUNDS = ["moving", "fixing", "building", "carrying", "sorting", "catching", "throwing",
+               "lifting", "pushing", "pulling", "drawing", "painting", "cleaning", "washing",
+               "cooking", "planting", "driving", "flying", "jumping", "running", "climbing",
+               "stacking", "balancing", "juggling", "dancing", "folding", "packing", "loading",
+               "digging", "sweeping", "organizing", "guarding", "chasing", "delivering"]
     for _ in range(reward_n):
-        if r.random() < 0.78:
+        pick = r.random()
+        if pick < 0.45:                                   # random goal -> CALL generalizes
+            g = f"{r.choice(GERUNDS)} the {r.choice(nouns)}"
+            user, call = r.choice(REQ).format(g=g), f"reward {g}"
+        elif pick < 0.8:                                  # curated domain goal
             g = r.choice(goal_phrases)
-            user = r.choice(REQ).format(g=g)
-            call = f"reward {g}"
-        else:
+            user, call = r.choice(REQ).format(g=g), f"reward {g}"
+        else:                                             # direct imperative
             d = r.choice(list(DIRECT))
             verb = r.choice(["make it", "teach it to", "i want it to", "get it to"])
             user, call = f"{verb} {d}", f"reward {d}"
