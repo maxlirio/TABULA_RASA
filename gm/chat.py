@@ -14,7 +14,7 @@ import os
 import re
 
 from gm.know import Knowledge
-from gm.tools import Tools
+from gm.tools import Tools, apply_rules, rule_suffix
 
 _DEFS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "defs.json")
 try:
@@ -117,6 +117,9 @@ class Chat:
     def reply(self, text):
         text = text.strip()
         out = self._route(text)          # routed BEFORE recording, so "what did I say" excludes this
+        suffix = rule_suffix(self.rules)  # "end every reply with X" rule, applied in code
+        if suffix and out and not out.rstrip().rstrip(".!").lower().endswith(suffix.lower()):
+            out = out.rstrip() + " " + suffix
         self.history.append(("USER", text))
         self.history.append(("BOT", out))
         self.session.append(("USER", text))
@@ -140,15 +143,18 @@ class Chat:
             if r is not None:
                 self._trace = why
                 return r
-        # 1b) Learn a DEFINITION the user gives ("X means ...") — before the fact-engine, which
-        #     would otherwise mis-store it. Stored so "what does X mean" returns it.
+        # 1b) STATE changes (name / persona / remember / forget / set a RULE) — BEFORE the fact &
+        #     definition learners, which would otherwise mis-grab "replace X with Y" as a fact.
+        #     Ack via the model; do NOT apply rules to the very message that sets one.
+        if self._apply_memory(text):
+            self._trace = "i saved that as a standing rule/preference."
+            return self._generate(text)
+        # 1c) Learn a DEFINITION the user gives ("X means ...").
         if self._learn_definition(text):
             ack = self._react(text)          # natural acknowledgement from the model
             self._trace = "you taught me a definition, so i saved it to my dictionary."
             return ack
-        # 2) Learn a fact: store it silently, react naturally. It does NOT pester with a
-        #    question after every fact — it only wonders out loud when explicitly asked
-        #    ("what are you curious about"), and only about things it genuinely can't infer.
+        # 2) Learn a fact: store it silently, react naturally.
         taught = self.know.teach(text)
         if taught is not None:
             if "contradict" in taught.lower() or "can't be right" in taught.lower():
@@ -165,8 +171,12 @@ class Chat:
                     return f"{ack} {q}"
             self._cooldown -= 1
             return ack
-        # 3) Other state changes (name / persona / remember / forget) run silently.
-        self._apply_memory(text)
+        # 3) Apply any ACTIVE standing rule DETERMINISTICALLY (the rule-following "tool") — 100%
+        #    reliable string substitution, which the net never learned to do well (2-4/5).
+        ruled = apply_rules(self.rules, text)
+        if ruled is not None:
+            self._trace = "i applied your standing rule in code (reliable), not by guessing."
+            return ruled
         # 4) Respond through the model — which may CALL a tool (reward/knowledge) or just chat.
         return self._react(text)
 
@@ -292,41 +302,50 @@ class Chat:
             return f"You've said {len(me)} thing(s) so far this chat."
         return None
 
-    # --- silent state changes (logic only; the reply comes from the model) ---
+    # --- silent state changes; returns True if it handled one (so the router can ack + skip rule
+    #     application on the very message that SET a rule). The rules are applied in code now
+    #     (apply_rules), not by the model — but we still feed them to the net as a fallback. ---
     def _apply_memory(self, text):
         t = text.lower().rstrip("?.!")
-        # standing instruction? keep it so it's fed to the model before every future reply.
-        # We only decide it's a rule worth keeping; the MODEL learned to apply it.
+        # standing RULE? (substitution / conditional / echo / suffix / constant). Stored, then
+        # applied deterministically by the rule-following tool (gm/tools.apply_rules).
         if ("instead of" in t or "now means" in t or t.startswith("whenever")
-                or re.match(r"replace \w+ with \w+", t) or re.match(r"use \w+ for \w+", t)):
+                or re.match(r"replace \w+ with \w+", t) or re.match(r"use \w+ (?:for|instead of) \w+", t)
+                or re.match(r"(?:if|when) i say \w+", t) or re.match(r"answer \w+ with \w+", t)
+                or re.search(r"\b(?:echo|repeat)(?: back)? what i say\b", t)
+                or re.match(r"(?:end|finish) (?:every|each) (?:reply|message|sentence) with ", t)
+                or re.match(r"(?:always|just) (?:say|reply|respond)\b", t)
+                or t.startswith("no matter what")):
             rule = re.sub(r"\s*(from now on|please)\.?$", "", t).strip()
             if rule and rule not in self.rules:
                 self.rules.append(rule)
-            return
+            return True
         m = re.match(r"(?:your name is|i'?ll call you|i will call you|call yourself) (\w+)$", t)
         if m:
             self.bot_name = m.group(1).title()
-            return
+            return True
         # persona ONLY on explicit role phrasing — never bare "you are ..." (that's chat)
         m = re.match(r"(?:act like|act as|pretend to be|roleplay as|your role is|"
                      r"from now on,? (?:be|act like|act as)) (?:a |an )?(.+)$", t)
         if m:
             self.persona = m.group(1).strip()
-            return
+            return True
         m = re.match(r"(?:my name is|call me|i am called|i'?m called) (\w+)$", t)
         if m:
             self.user_name = m.group(1).title()
-            return
+            return True
         m = re.match(r"remember (?:that )?(.+)", t)
         if m and not self._looks_like_fact(m.group(1)):
             self.notes.append(m.group(1).strip())
-            return
+            return True
         if t in FORGET:
             self.notes.clear()
             self.know = Knowledge()
             self.tools.know = self.know       # keep the tool dispatcher pointed at live memory
             self.persona = None
             self.rules.clear()
+            return True
+        return False
 
     _NOT_A_WORD = ("what", "it", "that", "this", "he", "she", "they", "there", "here",
                    "i", "you", "we", "who", "which")
@@ -378,8 +397,10 @@ class Chat:
     def _ban(self, coder):
         return [coder.stoi["<unk>"]] if "<unk>" in getattr(coder, "stoi", {}) else None
 
-    def _pre(self):                               # standing RULE: lines fed before every turn
-        return "".join(f"RULE: {r}\n" for r in self.rules[-3:])
+    def _pre(self):
+        # Rules are now applied in CODE (apply_rules) — feeding RULE: lines to the net only
+        # confused it (it degenerated), so we no longer prepend them. Kept for call-site clarity.
+        return ""
 
     def _raw(self, seed, temp, top_k, max_new=50):
         """Sample the model from a seed and return ONLY the newly generated text (with newlines
@@ -415,7 +436,7 @@ class Chat:
         # trying to sound natural, so the truthful explanation is that it's a guess.
         self._trace = ("i generated that with my language model - that's me trying to sound natural, "
                        "not something i looked up, so it's more of a guess than a fact.")
-        temp, top_k = (0.2, 3) if self.rules else (0.4, 40)
+        temp, top_k = 0.4, 40             # rules handled in code now -> no tight-sampling needed
         greet = text.lower().strip().rstrip("?.!") in GREET_IN
         best = ""
         for _ in range(3):                         # a few tries: skip confabulation / greeting whiffs

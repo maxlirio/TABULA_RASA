@@ -256,6 +256,65 @@ def build_reward(goal):
     return " ".join(out)
 
 
+# ---- rule engine: apply standing in-context rules DETERMINISTICALLY. A tiny LM can't reliably
+# do "say X instead of Y" (it scored 2-4/5 no matter how we trained it) — but that's just string
+# substitution, which code does 100% of the time. Same grounding idea as the other tools. ----
+def parse_rules(rules):
+    """Parse stored rule strings into (substitutions[(trigger,out)], constant, echo, suffix)."""
+    subs, const, echo, suffix = [], None, False, None
+    for raw in rules:
+        r = raw.strip().lower().rstrip(".")
+        m = (re.match(r"say (\w+) instead of (\w+)$", r) or re.match(r"use (\w+) instead of (\w+)$", r)
+             or re.match(r"use (\w+) for (\w+)$", r))
+        if m:                                                  # "say X instead of Y" -> Y triggers X
+            subs.append((m.group(2), m.group(1)))
+            continue
+        m = re.match(r"replace (\w+) with (\w+)$", r)
+        if m:
+            subs.append((m.group(1), m.group(2)))
+            continue
+        m = re.match(r"(?:from now on )?(\w+) (?:now )?means (\w+)$", r)
+        if m:
+            subs.append((m.group(1), m.group(2)))
+            continue
+        m = (re.match(r"(?:if|when|whenever) i say (\w+),? (?:say|respond|reply) (\w+)$", r)
+             or re.match(r"answer (\w+) with (\w+)$", r))
+        if m:
+            subs.append((m.group(1), m.group(2)))
+            continue
+        if re.search(r"\b(?:echo|repeat)(?: back)? what i say\b", r):
+            echo = True
+            continue
+        m = re.match(r"(?:end|finish) (?:every|each) (?:reply|message|sentence) with (.+)$", r)
+        if m:
+            suffix = m.group(1).strip()
+            continue
+        m = (re.match(r"(?:always|just) (?:say|reply|respond)(?: with)? (.+)$", r)
+             or re.match(r"no matter what.*?,?\s*(?:say|reply|respond)(?: with)? (.+)$", r))
+        if m:
+            const = m.group(1).strip()
+    return subs, const, echo, suffix
+
+
+def apply_rules(rules, text):
+    """Return the deterministic reply an active rule dictates, or None to fall through to chat."""
+    subs, const, echo, _ = parse_rules(rules)
+    if echo:
+        return text.strip()
+    if const is not None:
+        return const
+    out, changed = text.strip(), False
+    for y, x in subs:
+        new = re.sub(rf"\b{re.escape(y)}\b", x, out, flags=re.I)
+        if new != out:
+            out, changed = new, True
+    return out if changed else None
+
+
+def rule_suffix(rules):
+    return parse_rules(rules)[3]
+
+
 class Tools:
     """Executes a CALL line against the knowledge engine + reward builder; returns RESULT."""
 
