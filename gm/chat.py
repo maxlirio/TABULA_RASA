@@ -452,7 +452,10 @@ class Chat:
         model translates the RESULT into its own words) or it just chats. The tools are reliable
         backends the net feeds into — the net stays in charge of understanding and phrasing."""
         pre = self._pre()                         # active rules, fed so the model can obey them
-        head = self._raw(pre + f"USER: {text}\n", temp=0.2, top_k=5, max_new=24)
+        # Decide CALL-vs-chat GREEDILY (top_k=1): the tool-use probe is ~1.0 greedy but drops with
+        # sampling, so this is the cheap path to reliable tool-calling. (Only the DECISION is
+        # greedy; the actual reply is sampled normally for natural phrasing.)
+        head = self._raw(pre + f"USER: {text}\n", temp=0.1, top_k=1, max_new=24)
         m = re.match(r"\s*CALL:\s*([^\n]+)", head)
         if not m:
             return self._generate(text)           # the model chose to just chat

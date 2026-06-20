@@ -163,7 +163,8 @@ def main(subdir="modern", ckpt="apollo.pt", name="Apollo", iters=2500, threads=N
     tool_reqs = ["design a reward system for {}", "make a reward for {}", "i want it to {}",
                  "how should i reward {}", "give me a reward for {}", "what is {}"]
     tool_pos = ["winning the race", "stacking the cups", "sorting the mail", "feeding the dog",
-                "painting the fence", "climbing the rope", "catching the ball", "47 times 6"]
+                "painting the fence", "47 times 6"]
+    tool_direct = ["what day is it", "what time is it", "what's the date", "what year is it"]
     tool_neg = ["i have three cats at home", "i went running this morning", "how are you today",
                 "i love a sunny day", "tell me a story", "my favorite color is blue",
                 "i'm feeling a bit tired", "we have 5 people coming over"]
@@ -177,8 +178,9 @@ def main(subdir="modern", ckpt="apollo.pt", name="Apollo", iters=2500, threads=N
 
     def tool_gen():
         hits = sum(_calls(tool_reqs[i % len(tool_reqs)].format(g)) for i, g in enumerate(tool_pos))
-        hits += sum(not _calls(neg) for neg in tool_neg)     # reward NOT calling on chat
-        return hits / (len(tool_pos) + len(tool_neg))
+        hits += sum(_calls(q) for q in tool_direct)          # date/time questions -> should CALL
+        hits += sum(not _calls(neg) for neg in tool_neg)     # chat -> should NOT call
+        return hits / (len(tool_pos) + len(tool_direct) + len(tool_neg))
 
     t0 = time.time()
     best = (-1.0, float("inf"))               # (gen+tool, -val): maximize skills, then min val

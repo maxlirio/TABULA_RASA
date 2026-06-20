@@ -47,7 +47,7 @@ def vlist(xs):
     return xs[0] if len(xs) == 1 else ", ".join(xs[:-1]) + " and " + xs[-1]
 
 
-def main(n=12000, reward_n=9000, calc_n=9000, contrast_n=8000, seed=11):
+def main(n=12000, reward_n=9000, calc_n=9000, dt_n=9000, contrast_n=8000, seed=11):
     r = random.Random(seed)
     words = [w.strip().lower() for w in open(os.path.join(HERE, "common10k.txt"))]
     nouns = [w for w in words if w.isalpha() and 3 <= len(w) <= 9]
@@ -161,18 +161,25 @@ def main(n=12000, reward_n=9000, calc_n=9000, contrast_n=8000, seed=11):
     DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
     MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august",
               "september", "october", "november", "december"]
-    for _ in range(max(1, calc_n // 3)):
-        if r.random() < 0.55:
+    DATE_Q = ["what day is it", "what's the date", "what is today's date", "what day is it today",
+              "what's today's date", "what is the date", "what day is today", "do you know the date",
+              "tell me the date", "what's the day today", "today's date?", "what date is it"]
+    TIME_Q = ["what time is it", "what's the time", "do you know the time", "what time is it now",
+              "what is the time", "tell me the time", "got the time?", "the time please",
+              "what time is it right now", "current time?"]
+    YEAR_Q = ["what year is it", "what's the year", "what is the current year", "which year is it"]
+    for _ in range(dt_n):
+        pick = r.random()
+        if pick < 0.5:
             d = (f"{r.choice(DAYS)}, {r.choice(MONTHS)} {r.randint(1, 28)}, "
                  f"{r.randint(2024, 2031)}").title()
-            u = r.choice(["what day is it", "what's the date", "what is today's date",
-                          "what day is it today", "what's today's date"])
-            out.append(f"USER: {u}\nCALL: date\nRESULT: {d}\nBOT: it's {d}.")
-        else:
+            out.append(f"USER: {r.choice(DATE_Q)}\nCALL: date\nRESULT: {d}\nBOT: it's {d}.")
+        elif pick < 0.85:
             tm = f"{r.randint(1, 12)}:{r.randint(0, 59):02d} {r.choice(['am', 'pm'])}"
-            u = r.choice(["what time is it", "what's the time", "do you know the time",
-                          "what time is it now"])
-            out.append(f"USER: {u}\nCALL: time\nRESULT: {tm}\nBOT: it's {tm}.")
+            out.append(f"USER: {r.choice(TIME_Q)}\nCALL: time\nRESULT: {tm}\nBOT: it's {tm}.")
+        else:
+            y = str(r.randint(2024, 2031))
+            out.append(f"USER: {r.choice(YEAR_Q)}\nCALL: year\nRESULT: {y}\nBOT: it's {y}.")
 
     # ---- CONTRAST: turns that LOOK tool-ish (numbers, goal words) but are NOT requests, so the
     # model learns WHEN to call vs. when to just chat. Same weight as the tool data => a real
