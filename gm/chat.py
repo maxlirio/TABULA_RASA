@@ -14,7 +14,7 @@ import os
 import re
 
 from gm.know import Knowledge
-from gm.tools import Tools, apply_rules, rule_suffix
+from gm.tools import Tools
 
 _DEFS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "defs.json")
 try:
@@ -117,9 +117,6 @@ class Chat:
     def reply(self, text):
         text = text.strip()
         out = self._route(text)          # routed BEFORE recording, so "what did I say" excludes this
-        suffix = rule_suffix(self.rules)  # "end every reply with X" rule, applied in code
-        if suffix and out and not out.rstrip().rstrip(".!").lower().endswith(suffix.lower()):
-            out = out.rstrip() + " " + suffix
         self.history.append(("USER", text))
         self.history.append(("BOT", out))
         self.session.append(("USER", text))
@@ -171,13 +168,9 @@ class Chat:
                     return f"{ack} {q}"
             self._cooldown -= 1
             return ack
-        # 3) Apply any ACTIVE standing rule DETERMINISTICALLY (the rule-following "tool") — 100%
-        #    reliable string substitution, which the net never learned to do well (2-4/5).
-        ruled = apply_rules(self.rules, text)
-        if ruled is not None:
-            self._trace = "i applied your standing rule in code (reliable), not by guessing."
-            return ruled
-        # 4) Respond through the model — which may CALL a tool (reward/knowledge) or just chat.
+        # 3) Respond through the model — it decides whether to CALL a tool (reward/calc/date/
+        #    knowledge) and phrases the result itself, or just chats. Active rules are fed to it
+        #    (model-driven, see _pre) rather than applied by regex.
         return self._react(text)
 
     # --- exact retrieval (answers) --------------------------------------
@@ -398,9 +391,9 @@ class Chat:
         return [coder.stoi["<unk>"]] if "<unk>" in getattr(coder, "stoi", {}) else None
 
     def _pre(self):
-        # Rules are now applied in CODE (apply_rules) — feeding RULE: lines to the net only
-        # confused it (it degenerated), so we no longer prepend them. Kept for call-site clarity.
-        return ""
+        # Standing rules are fed to the MODEL as RULE: lines so IT attempts to obey them in
+        # context (model-driven, ~2-3/5) — no regex override of the conversation.
+        return "".join(f"RULE: {r}\n" for r in self.rules[-3:])
 
     def _raw(self, seed, temp, top_k, max_new=50):
         """Sample the model from a seed and return ONLY the newly generated text (with newlines
@@ -453,88 +446,32 @@ class Chat:
         return best or ("honestly, i'm just a small program here in this chat - i don't have a "
                         "life outside it. what would you like to talk about?")
 
-    def _reward_intent(self, text):
-        """INTERIM bridge: detect an explicit reward request by pattern and pull out the goal.
-        Returns the goal string, "" for a goal-less request (ask), or None if not a reward ask.
-        This exists only until the model is trained to emit `CALL: reward ...` itself; then the
-        ReAct path below supersedes it and this can be deleted."""
-        t = text.lower().strip().rstrip(".!?")
-        if "reward" not in t:
-            return None
-        for pat in (r"reward(?:\s+(?:system|function|signal))?\s+for\s+(.+)$",
-                    r"how should i reward\s+(.+)$", r"reward it for\s+(.+)$"):
-            m = re.search(pat, t)
-            if m:
-                return m.group(1).strip()
-        if re.search(r"(make|design|set up|give me|need|create|want|build).*\breward\b", t):
-            return ""                              # reward request with no goal -> ask
-        return None
-
-    _MATH_WORDS = ("plus", "minus", "times", "divided", "multiplied", "squared", "cubed",
-                   "power", "sqrt", "square root", "factorial", "percent", "subtract")
-
-    def _math_intent(self, text):
-        """INTERIM bridge: detect an arithmetic question and pull out the expression. Requires a
-        digit AND an operator (symbol or math word) so 'i have 2 cats' isn't treated as math.
-        Returns the expression, or None. Superseded once the model emits `CALL: calc ...`."""
-        t = text.lower().strip().rstrip("?.")
-        if not re.search(r"\d", t):
-            return None
-        has_op = (re.search(r"[+\-*/^%]", t) or re.search(r"\d\s*x\s*\d", t)
-                  or re.search(r"\d\s*!", t) or any(w in t for w in self._MATH_WORDS))
-        if not has_op:
-            return None
-        return re.sub(r"^(what'?s|what is|whats|calculate|compute|how much is|how many is|"
-                      r"solve|tell me|please)\s+", "", t).strip() or t
-
-    def _datetime_intent(self, text):
-        """INTERIM bridge: detect a date/time/year question. Superseded once the model emits
-        `CALL: date|time|year` itself."""
-        t = text.lower().strip().rstrip("?.!")
-        if "time is it" in t or re.search(r"what'?s the time|current time|the time now", t):
-            return "time"
-        if re.search(r"what year is it|what'?s the year|current year", t):
-            return "year"
-        if re.search(r"what day is it|what'?s the date|what is the date|what day is today|"
-                     r"what'?s today'?s date|what is today'?s date|what'?s the day today", t):
-            return "date"
-        return None
-
     def _react(self, text):
-        """ReAct: let the model decide whether this turn needs a TOOL. If it emits a CALL we
-        RUN it (gm/tools.py) and feed the RESULT back for it to verbalise; otherwise it just
-        replies. The logic lives in code; the net only routes to it and phrases the answer."""
-        dt = self._datetime_intent(text)           # interim: route date/time to the clock now
-        if dt is not None:
-            self._trace = "i read the clock/calendar on your computer - that's a tool, not a guess."
-            return f"it's {self.tools.run(dt)}."
-        expr = self._math_intent(text)             # interim: route math to the calculator now
-        if expr is not None:
-            ans = self.tools.run("calc " + expr)
-            if ans != "error":                     # if it doesn't parse, fall through to chat
-                self._trace = f"i ran it through my calculator tool ({expr.strip()} = {ans}) - exact, not guessed."
-                return ans
-        goal = self._reward_intent(text)           # interim: route reward asks to the tool now
-        if goal is not None:
-            if not goal:
-                return "a reward for what? tell me the goal and i'll build it."
-            self._trace = ("you asked for a reward, so i ran my reward tool on the goal; it matched "
-                           "a known pattern and built those terms in code - not a guess.")
-            return f"reward: {self.tools.run('reward ' + goal)}"
-        pre = self._pre()
-        # Stage 1: continue from the bare USER line (no forced BOT:) — a trained model emits
-        # either "CALL: ..." (needs a tool) or "BOT: ..." (just chat).
+        """Model-driven ReAct (no regex intent-matching): the MODEL decides whether a turn needs a
+        tool. From the bare USER line it emits either `CALL: ...` (then we run the tool and the
+        model translates the RESULT into its own words) or it just chats. The tools are reliable
+        backends the net feeds into — the net stays in charge of understanding and phrasing."""
+        pre = self._pre()                         # active rules, fed so the model can obey them
         head = self._raw(pre + f"USER: {text}\n", temp=0.2, top_k=5, max_new=24)
         m = re.match(r"\s*CALL:\s*([^\n]+)", head)
         if not m:
-            return self._generate(text)           # no tool -> ordinary reply
+            return self._generate(text)           # the model chose to just chat
         call = m.group(1).strip()
         result = self.tools.run(call)
-        if call.split()[:1] == ["reward"]:        # reward spec is authoritative — return exactly
+        op = (call.split()[:1] or [""])[0]
+        if result == "error":                     # tool couldn't handle it -> fall back to chat
+            return self._generate(text)
+        self._trace = (f"i decided this needed the '{op}' tool, fed it the request, and used its "
+                       f"result (that part is exact, not a guess).")
+        if op == "reward":                        # the spec itself is the answer
             return f"reward: {result}"
-        # knowledge call: let the model phrase the engine's result, fall back to a plain one
+        # everything else: let the MODEL translate the tool's result into a natural reply
         reply = self._clean(self._raw(
             pre + f"USER: {text}\nCALL: {call}\nRESULT: {result}\nBOT: ", temp=0.3, top_k=20))
         if reply:
             return reply
-        return "hmm, I'm not sure." if result in ("error", "") else result
+        if op == "calc":                          # safety nets if the model's phrasing came back empty
+            return f"that's {result}."
+        if op in ("date", "time", "year"):
+            return f"it's {result}."
+        return result
