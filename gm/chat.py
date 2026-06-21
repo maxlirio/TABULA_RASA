@@ -444,7 +444,7 @@ class Chat:
                 if k and k not in seen:
                     seen.add(k)
                     kept.append(p)
-            gen = " ".join(kept[:1 if greet else 2]).strip()
+            gen = " ".join(kept[:1] if greet else kept).strip()   # greet = 1 line; else up to the token cap
         return gen
 
     def _generate(self, text):
@@ -458,7 +458,8 @@ class Chat:
         greet = text.lower().strip().rstrip("?.!") in GREET_IN
         best = ""
         for _ in range(3):                         # a few tries: skip confabulation / greeting whiffs
-            gen = self._clean(self._raw(self._pre() + f"USER: {text}\nBOT: ", temp, top_k), greet)
+            gen = self._clean(self._raw(self._pre() + f"USER: {text}\nBOT: ", temp, top_k,
+                                        max_new=200), greet)   # up to ~200 tokens per reply
             if not gen or self._confabulates(gen) or self._toolbleed(gen):
                 continue                            # reject junk / worldly-self / tool-format bleed
             if greet:
