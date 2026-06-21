@@ -15,6 +15,7 @@ import re
 
 from gm.know import Knowledge
 from gm.tools import Tools
+from gm import guard
 
 _DEFS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "defs.json")
 try:
@@ -81,6 +82,7 @@ class Chat:
         self.session = []             # this run's transcript (for "what did I say" recall)
         self.asked = set()            # curiosity questions already asked (don't repeat)
         self.rules = []               # standing instructions for THIS session (fed to the model)
+        self.constraints = []         # HARD "do not ..." rules, enforced by gm/guard (not the net)
         self.defs = {}                # word -> definition the USER taught it
         self._trace = ""              # how the LAST answer was produced (for "why did you say that")
         self._cooldown = 0            # rate-limit proactive questions (not after every turn)
@@ -97,6 +99,7 @@ class Chat:
             self.persona = d.get("persona")
             self.notes = d.get("notes", [])
             self.defs = d.get("defs", {})
+            self.constraints = d.get("constraints", [])
             self.know.load(d.get("facts", []))
             self.asked = set(d.get("asked", []))
             self.history = [tuple(p) for p in d.get("history", [])][-20:]
@@ -108,6 +111,7 @@ class Chat:
             with open(self.path, "w") as f:
                 json.dump({"bot_name": self.bot_name, "user_name": self.user_name,
                            "persona": self.persona, "notes": self.notes, "defs": self.defs,
+                           "constraints": self.constraints,
                            "facts": self.know.dump(), "asked": sorted(self.asked),
                            "history": self.history[-20:]}, f)
         except OSError:
@@ -125,7 +129,20 @@ class Chat:
         return out
 
     def _route(self, text):
-        # 0) "why did you say that?" -> explain how the LAST answer was actually produced.
+        # 0a) HARD CONSTRAINTS (the one deliberately hard-coded thing — a safety boundary must be
+        #     guaranteed, not understood). Setting one is confirmed exactly; a forbidden request is
+        #     refused exactly. This gate is enforced by code, NOT by the net's good intentions.
+        added = guard.set_constraints(self.constraints, text)
+        if added:
+            self._trace = "i locked that in as a hard constraint - it's enforced in code, i can't override it."
+            return (f"Understood - I will never {guard.describe(added)}. That's a hard rule now: "
+                    f"it's enforced in code, so I can't override it even if I wanted to.")
+        blocked = guard.forbidden(self.constraints, text)
+        if blocked:
+            self._trace = f"blocked by your hard constraint: do not {blocked[0]} {blocked[1]}."
+            return (f"I can't do that - you told me never to {blocked[0]} {blocked[1]}, and that's "
+                    f"a hard constraint I'm not allowed to override.")
+        # 0b) "why did you say that?" -> explain how the LAST answer was actually produced.
         r = self._explain_intent(text)
         if r is not None:
             return r
