@@ -285,6 +285,14 @@ class Chat:
                 else "ask me something first, then i can explain how i answered it."
         return None
 
+    _TOOL_WORDS = ("profile", "store", "find", "ask", "calc", "reward", "solve", "codereward",
+                   "call", "result", "rule")
+
+    def _toolbleed(self, reply):
+        """True if a CHAT reply starts with a tool keyword — that's a tool-call format leaking into
+        conversation ('profile ocean'), not a real reply. Resample instead."""
+        return (reply.lower().split() or [""])[0].strip(":,.") in self._TOOL_WORDS
+
     def _confabulates(self, reply):
         """True if the reply is a worldly first-person claim a program can't truthfully make
         (the 'i'm going to the hospital' problem)."""
@@ -451,8 +459,8 @@ class Chat:
         best = ""
         for _ in range(3):                         # a few tries: skip confabulation / greeting whiffs
             gen = self._clean(self._raw(self._pre() + f"USER: {text}\nBOT: ", temp, top_k), greet)
-            if not gen or self._confabulates(gen):  # don't let it invent a worldly self
-                continue
+            if not gen or self._confabulates(gen) or self._toolbleed(gen):
+                continue                            # reject junk / worldly-self / tool-format bleed
             if greet:
                 first = (gen.lower().split() or [""])[0].strip(".!,")
                 if first not in ("hi", "hello", "hey", "heya", "hiya", "howdy", "good", "yo"):
