@@ -488,6 +488,8 @@ class Chat:
         # reasoning-data bleed like "so there are 84 times 7").
         if op == "reward":
             return f"reward: {result}"
+        if op == "codereward":                    # full reward-function code -> return verbatim
+            return result
         if op == "calc":
             return f"that's {result}."
         if op in ("date", "time", "year"):

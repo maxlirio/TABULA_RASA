@@ -315,6 +315,45 @@ def rule_suffix(rules):
     return parse_rules(rules)[3]
 
 
+# terms that represent a FAILURE/safety event -> get a heavier penalty weight when coding a reward
+_CRITICAL = {"fall", "collisions", "crash", "crashes", "damage", "drops", "spills", "overshoot",
+             "hard_landing", "stall", "injury", "overcharge", "overheating", "collapse",
+             "collapses", "overflow", "overdose", "missed_dose", "losses", "faults", "airballs",
+             "curb_hit", "spilled", "blocks_fallen", "walkaways", "escalations", "churn",
+             "new_bugs", "broken_behavior", "missed_symptoms", "misdiagnosis", "distress"}
+
+
+def code_reward(goal):
+    """DESIGN a reward and write it as runnable CODE — the tool figures out which objectives and
+    penalties matter (from the goal), assigns weights (emphasis -> bigger, failures -> heavier),
+    and emits a Python reward function. ('Coding its own reward' — the structure is derived, not
+    a fixed template.) Note: this DESIGNS a principled reward; empirically tuning it would need an
+    environment to train in."""
+    spec = build_reward(goal).split("  (generic")[0].strip()
+    lines, has_terms = [], False
+    for t in spec.split():
+        if t[0] not in "+-":
+            continue
+        has_terms = True
+        sign, name, strong = t[0], t[1:].split("(")[0], "(strong)" in t
+        if sign == "+":
+            w = 2.0 if strong else 1.0
+            note = "  # emphasized objective" if strong else "  # objective"
+            lines.append(f"    r += {w:.1f} * s.{name}{note}")
+        else:
+            w = (3.0 if strong else 2.0) if name in _CRITICAL else 1.0
+            note = "  # critical failure" if name in _CRITICAL else "  # penalty"
+            lines.append(f"    r -= {w:.1f} * s.{name}{note}")
+    if not has_terms:
+        lines = ["    r += 1.0 * s.task_progress  # objective", "    r -= 1.0 * s.time  # penalty"]
+    body = "\n".join(lines)
+    return (f"def reward(s):\n"
+            f'    """Reward for: {goal.strip()}."""\n'
+            f"    r = 0.0\n"
+            f"{body}\n"
+            f"    return r")
+
+
 class Tools:
     """Executes a CALL line against the knowledge engine + reward builder; returns RESULT."""
 
@@ -344,6 +383,8 @@ class Tools:
                 return "isa " + ",".join(parents) if parents else "nothing"
             if op == "reward" and args:
                 return build_reward(" ".join(args))
+            if op == "codereward" and args:
+                return code_reward(" ".join(args))
             if op == "calc" and args:
                 return calc(" ".join(args))
             if op == "solve" and args:

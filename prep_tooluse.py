@@ -140,6 +140,18 @@ def main(n=12000, reward_n=9000, calc_n=9000, dt_n=9000, solve_n=6000, contrast_
         u, b = r.choice(VAGUE)
         out.append(f"USER: {u}\nBOT: {b}")
 
+    # ---- code-a-reward TOOL: the brain hands the goal to the reward CODER, which writes a full
+    # reward FUNCTION (derived weights/penalties). RESULT computed by the same code_reward(). ----
+    from gm.tools import code_reward as _coder
+    CODE_Q = ["code a reward for {g}", "write a reward function for {g}", "code me a reward for {g}",
+              "write the reward code for {g}", "give me reward code for {g}",
+              "code a reward function for {g}", "write a reward for {g} as code"]
+    for _ in range(max(1, reward_n // 3)):
+        g = r.choice(goal_phrases) if r.random() < 0.6 else f"{r.choice(GERUNDS)} the {r.choice(nouns)}"
+        code = _coder(g)
+        out.append(f"USER: {r.choice(CODE_Q).format(g=g)}\nCALL: codereward {g}\n"
+                   f"RESULT: {code}\nBOT: {code}")
+
     # ---- calculator TOOL: a tiny LM can't do reliable arithmetic, so it learns to CALL calc.
     # RESULT computed by the same calc() the runtime uses, so training and inference agree. ----
     ASK_MATH = ["what is {e}", "what's {e}", "calculate {e}", "{e}", "how much is {e}",
