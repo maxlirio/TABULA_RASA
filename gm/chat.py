@@ -466,15 +466,16 @@ class Chat:
             return self._generate(text)
         self._trace = (f"i decided this needed the '{op}' tool, fed it the request, and used its "
                        f"result (that part is exact, not a guess).")
-        if op == "reward":                        # the spec itself is the answer
+        # Simple value results get a clean fixed phrasing (the model still DECIDED to call the
+        # tool; "that's 84" / "it's 1:53 pm" is the trivial translation, and pinning it avoids the
+        # reasoning-data bleed like "so there are 84 times 7").
+        if op == "reward":
             return f"reward: {result}"
-        # everything else: let the MODEL translate the tool's result into a natural reply
-        reply = self._clean(self._raw(
-            pre + f"USER: {text}\nCALL: {call}\nRESULT: {result}\nBOT: ", temp=0.3, top_k=20))
-        if reply:
-            return reply
-        if op == "calc":                          # safety nets if the model's phrasing came back empty
+        if op == "calc":
             return f"that's {result}."
         if op in ("date", "time", "year"):
             return f"it's {result}."
-        return result
+        # KNOWLEDGE results vary in phrasing ("a cat and a dog have fur") -> let the model translate
+        reply = self._clean(self._raw(
+            pre + f"USER: {text}\nCALL: {call}\nRESULT: {result}\nBOT: ", temp=0.3, top_k=20))
+        return reply or result
