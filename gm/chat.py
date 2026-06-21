@@ -289,9 +289,14 @@ class Chat:
                    "call", "result", "rule")
 
     def _toolbleed(self, reply):
-        """True if a CHAT reply starts with a tool keyword — that's a tool-call format leaking into
-        conversation ('profile ocean'), not a real reply. Resample instead."""
-        return (reply.lower().split() or [""])[0].strip(":,.") in self._TOOL_WORDS
+        """True if a CHAT reply is a TEMPLATE leaking into conversation — a tool keyword
+        ('profile ocean') or a reasoning-trace opener ('let's think step by step...' on a non-
+        puzzle). Both are training-format bleed, not a real reply, so resample."""
+        low = reply.lower().strip()
+        if (low.split() or [""])[0].strip(":,.") in self._TOOL_WORDS:
+            return True
+        return low.startswith(("let's think", "lets think", "let's reason", "lets reason",
+                               "let me work through", "step by step", "okay, reasoning"))
 
     def _confabulates(self, reply):
         """True if the reply is a worldly first-person claim a program can't truthfully make
