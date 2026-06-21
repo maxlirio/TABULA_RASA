@@ -492,6 +492,8 @@ class Chat:
             return f"that's {result}."
         if op in ("date", "time", "year"):
             return f"it's {result}."
+        if op == "solve":                         # the solver already returns "NEXT (rule: ...)"
+            return result
         # KNOWLEDGE results vary in phrasing ("a cat and a dog have fur") -> let the model translate
         reply = self._clean(self._raw(
             pre + f"USER: {text}\nCALL: {call}\nRESULT: {result}\nBOT: ", temp=0.3, top_k=20))

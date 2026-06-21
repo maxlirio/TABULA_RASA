@@ -346,6 +346,9 @@ class Tools:
                 return build_reward(" ".join(args))
             if op == "calc" and args:
                 return calc(" ".join(args))
+            if op == "solve" and args:
+                from gm import solver
+                return solver.solve(" ".join(args))
             if op == "date":
                 return now_date()
             if op == "time":

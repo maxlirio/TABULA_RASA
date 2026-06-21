@@ -47,7 +47,7 @@ def vlist(xs):
     return xs[0] if len(xs) == 1 else ", ".join(xs[:-1]) + " and " + xs[-1]
 
 
-def main(n=12000, reward_n=9000, calc_n=9000, dt_n=9000, contrast_n=8000, seed=11):
+def main(n=12000, reward_n=9000, calc_n=9000, dt_n=9000, solve_n=6000, contrast_n=8000, seed=11):
     r = random.Random(seed)
     words = [w.strip().lower() for w in open(os.path.join(HERE, "common10k.txt"))]
     nouns = [w for w in words if w.isalpha() and 3 <= len(w) <= 9]
@@ -180,6 +180,40 @@ def main(n=12000, reward_n=9000, calc_n=9000, dt_n=9000, contrast_n=8000, seed=1
         else:
             y = str(r.randint(2024, 2031))
             out.append(f"USER: {r.choice(YEAR_Q)}\nCALL: year\nRESULT: {y}\nBOT: it's {y}.")
+
+    # ---- solver TOOL: number-sequence puzzles. The brain learns to hand the sequence to the
+    # solver (which SEARCHES for the rule) and verbalise the answer. RESULT computed by the real
+    # solver, so train==runtime. ----
+    from gm.solver import solve as _solve
+    SEQ_Q = ["what comes next: {s}", "what's next in {s}", "solve this sequence: {s}",
+             "finish the sequence {s}", "next number: {s}", "what comes after {s}",
+             "figure out the pattern: {s}"]
+    for _ in range(solve_n):
+        kind = r.random()
+        if kind < 0.32:                                   # arithmetic
+            a, d = r.randint(1, 20), r.randint(2, 9)
+            seq = [a + d * i for i in range(r.randint(4, 6))]
+        elif kind < 0.58:                                 # geometric
+            a, m = r.randint(1, 5), r.randint(2, 4)
+            seq = [a * m ** i for i in range(r.randint(4, 5))]
+        elif kind < 0.8:                                  # fibonacci-like
+            seq = [r.randint(1, 4), r.randint(1, 5)]
+            for _ in range(r.randint(3, 4)):
+                seq.append(seq[-1] + seq[-2])
+        else:                                             # quadratic (growing gaps)
+            v, d = r.randint(1, 6), r.randint(1, 4)
+            seq = []
+            for i in range(r.randint(4, 6)):
+                seq.append(v)
+                v += d + 2 * i
+        s = " ".join(map(str, seq))
+        res = _solve(s)                                   # "NEXT  (rule: ...)"
+        if "rule:" not in res:
+            continue
+        nxt = res.split("(")[0].strip()
+        rule = res.split("rule:")[1].strip().rstrip(")")
+        out.append(f"USER: {r.choice(SEQ_Q).format(s=s)}\nCALL: solve {s}\n"
+                   f"RESULT: {res}\nBOT: {nxt} - {rule}.")
 
     # ---- CONTRAST: turns that LOOK tool-ish (numbers, goal words) but are NOT requests, so the
     # model learns WHEN to call vs. when to just chat. Same weight as the tool data => a real

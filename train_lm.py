@@ -164,7 +164,8 @@ def main(subdir="modern", ckpt="apollo.pt", name="Apollo", iters=2500, threads=N
                  "how should i reward {}", "give me a reward for {}", "what is {}"]
     tool_pos = ["winning the race", "stacking the cups", "sorting the mail", "feeding the dog",
                 "painting the fence", "47 times 6"]
-    tool_direct = ["what day is it", "what time is it", "what's the date", "what year is it"]
+    tool_direct = ["what day is it", "what time is it", "what's the date", "what year is it",
+                   "what comes next: 3 6 9 12", "finish the sequence 2 4 8 16"]
     tool_neg = ["i have three cats at home", "i went running this morning", "how are you today",
                 "i love a sunny day", "tell me a story", "my favorite color is blue",
                 "i'm feeling a bit tired", "we have 5 people coming over"]
