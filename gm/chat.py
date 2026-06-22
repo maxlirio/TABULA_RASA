@@ -436,7 +436,7 @@ class Chat:
     def _clean(self, gen, greet=False):
         """Trim a BOT reply to a sentence or two, kill transcript markers, book-quote bleed,
         and the LM's occasional looped clause."""
-        for cut in ("\nUSER", "\nBOT", "\nRULE", "\nCALL", "\nRESULT",
+        for cut in ("■", "\nUSER", "\nBOT", "\nRULE", "\nCALL", "\nRESULT",   # ■ = learned EOS
                     "USER:", "BOT:", "RULE:", "CALL:", "RESULT:", '"', " '"):
             if cut in gen:
                 gen = gen.split(cut)[0]
