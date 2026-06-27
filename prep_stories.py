@@ -17,7 +17,7 @@ REQ = ["tell me a story", "tell me a story", "can you tell me a story", "tell me
        "talk to me for a bit", "tell me a story please"]
 
 
-def main(n=6000, seed=21):
+def main(n=15000, seed=21):
     r = random.Random(seed)
     src = os.path.join(HERE, "data", "books", "chat.txt")
     if not os.path.exists(src):

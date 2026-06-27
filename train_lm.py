@@ -87,7 +87,7 @@ def main(subdir="modern", ckpt="apollo.pt", name="Apollo", iters=2500, threads=N
     device = ("cuda" if torch.cuda.is_available()
               else "mps" if torch.backends.mps.is_available() else "cpu")
     text = load_corpus(subdir)
-    coder = WordCoder.from_text(text, min_freq=16)  # prune rare words (big corpus -> ~62k vocab)
+    coder = WordCoder.from_text(text, min_freq=8)  # prune rare words (big corpus -> ~62k vocab)
     data = torch.tensor(coder.encode(text), dtype=torch.long)
     n = int(0.95 * len(data))
     train, val = data[:n], data[n:]

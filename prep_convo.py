@@ -39,10 +39,11 @@ PAIRS = [
     (["do you think i should", "what do you think", "what's your opinion", "do you agree"],
      ["i'm not sure - what do you think?", "hard to say. what feels right to you?",
       "i'd want to know more first - what's your take?", "tell me more and i'll try to help."]),
-    (["tell me a story", "tell me something", "say something interesting", "talk to me"],
-     ["i'm still learning to tell stories, but i love listening.", "what would you like to hear about?",
-      "i'm better at learning than storytelling - teach me something?",
-      "i don't have a story yet, but tell me one of yours."]),
+    (["say something interesting", "talk to me", "what's on your mind"],
+     ["what would you like to hear about?", "hmm, let me think - what interests you?",
+      "happy to chat - what's up?"]),
+    # NOTE: "tell me a story" is deliberately NOT answered here with a dodge — the model learns to
+    # ATTEMPT a real (long) story from prep_stories.py instead.
     (["that's interesting", "that is really interesting", "cool", "nice", "wow", "neat"],
      ["right? i thought so too.", "glad you think so!", "yeah, i'm learning a lot.", "i'm glad!"]),
     (["thank you", "thanks", "thanks so much", "i appreciate it"],
