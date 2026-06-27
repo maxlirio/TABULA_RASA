@@ -461,12 +461,16 @@ class Chat:
                        "not something i looked up, so it's more of a guess than a fact.")
         temp, top_k = 0.4, 40             # rules handled in code now -> no tight-sampling needed
         greet = text.lower().strip().rstrip("?.!") in GREET_IN
+        # a STORY request wants first-person narrative ("i went...", "my..."), which is exactly what
+        # the confabulation guard suppresses — so don't apply that guard for stories.
+        story = any(p in text.lower() for p in ("tell me a story", "story about", "a tale",
+                                                "bedtime story", "read me something", "longer answer"))
         best = ""
         for _ in range(3):                         # a few tries: skip confabulation / greeting whiffs
             gen = self._clean(self._raw(self._pre() + f"USER: {text}\nBOT: ", temp, top_k,
                                         max_new=200), greet)   # up to ~200 tokens per reply
-            if not gen or self._confabulates(gen) or self._toolbleed(gen):
-                continue                            # reject junk / worldly-self / tool-format bleed
+            if not gen or self._toolbleed(gen) or (not story and self._confabulates(gen)):
+                continue                            # reject junk / tool-bleed / (worldly-self unless story)
             if greet:
                 first = (gen.lower().split() or [""])[0].strip(".!,")
                 if first not in ("hi", "hello", "hey", "heya", "hiya", "howdy", "good", "yo"):
