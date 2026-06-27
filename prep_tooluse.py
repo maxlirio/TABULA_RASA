@@ -109,48 +109,8 @@ def main(n=12000, reward_n=9000, calc_n=9000, dt_n=9000, solve_n=6000, contrast_
 
         out.append("\n".join(lines))
 
-    # ---- reward TOOL: route a goal to the reward builder, then verbalise the spec. The RESULT
-    # is computed by the SAME build_reward() the runtime uses, so training and inference agree.
-    # A big share uses RANDOM goals (verb + noun) so the model learns to CALL with the user's
-    # literal goal for ANY request, instead of freelancing a spec on goals it never saw. ----
-    goal_phrases = [g for g, _ in GOALS]
-    nouns = [w.strip().lower() for w in open(os.path.join(HERE, "common10k.txt"))
-             if w.strip().isalpha() and 3 <= len(w.strip()) <= 9]
-    GERUNDS = ["moving", "fixing", "building", "carrying", "sorting", "catching", "throwing",
-               "lifting", "pushing", "pulling", "drawing", "painting", "cleaning", "washing",
-               "cooking", "planting", "driving", "flying", "jumping", "running", "climbing",
-               "stacking", "balancing", "juggling", "dancing", "folding", "packing", "loading",
-               "digging", "sweeping", "organizing", "guarding", "chasing", "delivering"]
-    for _ in range(reward_n):
-        pick = r.random()
-        if pick < 0.45:                                   # random goal -> CALL generalizes
-            g = f"{r.choice(GERUNDS)} the {r.choice(nouns)}"
-            user, call = r.choice(REQ).format(g=g), f"reward {g}"
-        elif pick < 0.8:                                  # curated domain goal
-            g = r.choice(goal_phrases)
-            user, call = r.choice(REQ).format(g=g), f"reward {g}"
-        else:                                             # direct imperative
-            d = r.choice(list(DIRECT))
-            verb = r.choice(["make it", "teach it to", "i want it to", "get it to"])
-            user, call = f"{verb} {d}", f"reward {d}"
-        spec = build_reward(call.split(" ", 1)[1])
-        out.append(f"USER: {user}\nCALL: {call}\nRESULT: {spec}\nBOT: reward: {spec}")
-    # vague reward requests -> ASK for the goal (no tool call), so it doesn't guess blindly
-    for _ in range(max(1, reward_n // 20)):
-        u, b = r.choice(VAGUE)
-        out.append(f"USER: {u}\nBOT: {b}")
-
-    # ---- code-a-reward TOOL: the brain hands the goal to the reward CODER, which writes a full
-    # reward FUNCTION (derived weights/penalties). RESULT computed by the same code_reward(). ----
-    from gm.tools import code_reward as _coder
-    CODE_Q = ["code a reward for {g}", "write a reward function for {g}", "code me a reward for {g}",
-              "write the reward code for {g}", "give me reward code for {g}",
-              "code a reward function for {g}", "write a reward for {g} as code"]
-    for _ in range(max(1, reward_n // 3)):
-        g = r.choice(goal_phrases) if r.random() < 0.6 else f"{r.choice(GERUNDS)} the {r.choice(nouns)}"
-        code = _coder(g)
-        out.append(f"USER: {r.choice(CODE_Q).format(g=g)}\nCALL: codereward {g}\n"
-                   f"RESULT: {code}\nBOT: {code}")
+    # NOTE: reward DESIGN is no longer a lookup tool here — the model learns to DESIGN rewards by
+    # reasoning (see prep_reward_design.py), so it understands the goal instead of matching words.
 
     # ---- calculator TOOL: a tiny LM can't do reliable arithmetic, so it learns to CALL calc.
     # RESULT computed by the same calc() the runtime uses, so training and inference agree. ----
