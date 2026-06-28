@@ -15,7 +15,7 @@ import torch
 
 WIKI_MB = sys.argv[1] if len(sys.argv) > 1 else "250"
 BATCH = sys.argv[2] if len(sys.argv) > 2 else "16"
-ITERS = sys.argv[3] if len(sys.argv) > 3 else "24000"
+ITERS = sys.argv[3] if len(sys.argv) > 3 else "48000"  # last run used only 2.6h/12h -> go longer
 
 print("GPU:", torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU", flush=True)
 env = dict(os.environ, PYTHONPATH=os.getcwd(), PYTHONUNBUFFERED="1")
@@ -49,7 +49,7 @@ append("data/wiki/chat.txt", 1)
 append("data/tooluse/chat.txt", 3)
 append("data/reasoning/chat.txt", 2)
 append("data/rules/chat.txt", 2)
-append("data/reward_design/chat.txt", 1)
+append("data/reward_design/chat.txt", 3)  # upweighted: specs need many passes to sharpen the format
 print("final corpus MB:", round(os.path.getsize("data/mixed/chat.txt") / 1e6), flush=True)
 
 subprocess.run([sys.executable, "-u", "train_lm.py", "mixed", "/kaggle/working/apollo.pt",
