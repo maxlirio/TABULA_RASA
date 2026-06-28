@@ -81,13 +81,13 @@ def warm_start(model, coder, warm_path, name):
 
 
 def main(subdir="modern", ckpt="apollo.pt", name="Apollo", iters=2500, threads=None,
-         n_embd=192, n_layer=4, block=128, n_head=6, batch=None, warm=None):
+         n_embd=192, n_layer=4, block=128, n_head=6, batch=None, warm=None, min_freq=8):
     torch.manual_seed(1)
     torch.set_num_threads(threads or os.cpu_count() or 4)
     device = ("cuda" if torch.cuda.is_available()
               else "mps" if torch.backends.mps.is_available() else "cpu")
     text = load_corpus(subdir)
-    coder = WordCoder.from_text(text, min_freq=8)  # prune rare words (big corpus -> ~62k vocab)
+    coder = WordCoder.from_text(text, min_freq=min_freq)  # prune rare words (big corpus -> ~62k vocab)
     data = torch.tensor(coder.encode(text), dtype=torch.long)
     n = int(0.95 * len(data))
     train, val = data[:n], data[n:]
@@ -233,4 +233,5 @@ if __name__ == "__main__":
          int(a[7]) if len(a) > 7 else 128,
          int(a[8]) if len(a) > 8 else 6,
          int(a[9]) if len(a) > 9 else None,
-         a[10] if len(a) > 10 else None)
+         a[10] if len(a) > 10 else None,
+         int(a[11]) if len(a) > 11 else 8)
