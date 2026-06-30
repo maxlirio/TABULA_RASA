@@ -148,27 +148,30 @@ for it in range(1, 2501):
 
 PROMPTS = ["picking up trash", "keeping the kitchen clean", "charging my phone",
            "collecting the leaves", "reducing noise", "fixing the engine"]
-model.eval()
+model = model.to("cpu").eval()        # gen_ids builds CPU seed tensors; keep model+input on one device
 ban = [unk] if unk is not None else None
 clean = 0
 proxy_lines = []
-for g in PROMPTS:
-    seed = coder.encode(f"USER: design a reward for {g}\nBOT: ")
-    out = model.gen_ids(list(seed), 40, temp=0.1, top_k=1, ban=ban)
-    txt = coder.decode(out).split(EOS)[0].split("\n")[0].strip()
-    spec = txt.split("reward:")[-1].strip() if "reward:" in txt else txt
-    obj = g.split()[-1]
-    # "clean" = the spec mentions the actual object as a standalone token and has >=2 signed terms
-    toks = _TOK.findall(spec)
-    signed = [t for t in toks if t[0] in "+-"]
-    has_obj = obj in toks and "<unk>" not in spec
-    ok = has_obj and len(signed) >= 2
-    clean += ok
-    proxy_lines.append(f"    [{'OK' if ok else '  '}] {g:24} -> {txt[:90]}")
-okC = clean >= len(PROMPTS) * 0.7
-report.append(("C. overfit proxy emits clean specs", okC,
-               f"{clean}/{len(PROMPTS)} prompts produced a clean spec (object as standalone token "
-               f"+ >=2 signed terms)\n" + "\n".join(proxy_lines)))
+try:
+    for g in PROMPTS:
+        seed = coder.encode(f"USER: design a reward for {g}\nBOT: ")
+        out = model.gen_ids(list(seed), 40, temp=0.1, top_k=1, ban=ban)
+        txt = coder.decode(out).split(EOS)[0].split("\n")[0].strip()
+        spec = txt.split("reward:")[-1].strip() if "reward:" in txt else txt
+        obj = g.split()[-1]
+        # "clean" = spec mentions the actual object as a standalone token and has >=2 signed terms
+        toks = _TOK.findall(spec)
+        signed = [t for t in toks if t[0] in "+-"]
+        has_obj = obj in toks and "<unk>" not in spec
+        ok = has_obj and len(signed) >= 2
+        clean += ok
+        proxy_lines.append(f"    [{'OK' if ok else '  '}] {g:24} -> {txt[:90]}")
+    okC = clean >= len(PROMPTS) * 0.7
+    detailC = (f"{clean}/{len(PROMPTS)} prompts produced a clean spec (object as standalone token "
+               f"+ >=2 signed terms)\n" + "\n".join(proxy_lines))
+except Exception as e:
+    okC, detailC = False, f"proxy generation errored: {e!r}"
+report.append(("C. overfit proxy emits clean specs", okC, detailC))
 
 
 # ---------------------------------------------------------------- summary
