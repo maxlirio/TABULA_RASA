@@ -16,6 +16,8 @@ import torch
 WIKI_MB = sys.argv[1] if len(sys.argv) > 1 else "250"
 BATCH = sys.argv[2] if len(sys.argv) > 2 else "16"
 ITERS = sys.argv[3] if len(sys.argv) > 3 else "48000"  # last run used only 2.6h/12h -> go longer
+# 4th arg "nowarm" trains from scratch (fallback if warm-start's old-format prior still biases specs)
+WARM = (len(sys.argv) <= 4 or sys.argv[4] != "nowarm")
 
 print("GPU:", torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU", flush=True)
 env = dict(os.environ, PYTHONPATH=os.getcwd(), PYTHONUNBUFFERED="1")
@@ -71,7 +73,9 @@ def scrub_old_reward_format():
 scrub_old_reward_format()
 print("final corpus MB:", round(os.path.getsize("data/mixed/chat.txt") / 1e6), flush=True)
 
+warm_arg = warm[0] if WARM else ""     # "" -> train_lm falls back to random init (from scratch)
+print("warm-start:", "ON " + warm[0] if WARM else "OFF (from scratch)", flush=True)
 subprocess.run([sys.executable, "-u", "train_lm.py", "mixed", "/kaggle/working/apollo.pt",
-                "Apollo", ITERS, "8", "768", "12", "256", "12", BATCH, warm[0], "30"],
+                "Apollo", ITERS, "8", "768", "12", "256", "12", BATCH, warm_arg, "30"],
                env=env, check=True)
 print("TRAINING COMPLETE", flush=True)
