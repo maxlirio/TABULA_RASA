@@ -50,6 +50,25 @@ append("data/tooluse/chat.txt", 3)
 append("data/reasoning/chat.txt", 2)
 append("data/rules/chat.txt", 2)
 append("data/reward_design/chat.txt", 3)  # upweighted: specs need many passes to sharpen the format
+
+
+def scrub_old_reward_format():
+    """The v5 BASE corpus was assembled before the spec-format fix, so it carries OLD glued-format
+    reward examples ("reward: +trash_collected ...") whose object-glued tokens now prune to <unk>.
+    Left in, they CONTRADICT the new "+collected trash" examples under the identical reasoning
+    templates and the model learns neither. Drop every block whose reward: line has an X_Y compound
+    so there is ONE consistent target. (Reasoning is plain English -> unaffected.)"""
+    import re as _re
+    glued = _re.compile(r"reward:[^\n]*[+\-][a-z]+_[a-z]+", _re.I)
+    blocks = [b for b in open("data/mixed/chat.txt").read().split("\n\n") if b.strip()]
+    kept = [b for b in blocks if not glued.search(b)]
+    with open("data/mixed/chat.txt", "w") as f:
+        f.write("\n\n".join(kept) + "\n")
+    print(f"scrubbed old-format reward blocks: {len(blocks) - len(kept):,} dropped, "
+          f"{len(kept):,} kept", flush=True)
+
+
+scrub_old_reward_format()
 print("final corpus MB:", round(os.path.getsize("data/mixed/chat.txt") / 1e6), flush=True)
 
 subprocess.run([sys.executable, "-u", "train_lm.py", "mixed", "/kaggle/working/apollo.pt",

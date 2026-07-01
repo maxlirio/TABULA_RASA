@@ -64,6 +64,15 @@ for name, times in WEIGHTS:
     with open("data/mixed/chat.txt", "a") as f:
         for _ in range(times):
             f.write("\n\n" + data)
+
+# mirror t4_run.py's scrub of old glued-format reward blocks so we validate the REAL training corpus
+import re as _scrub_re
+_glued0 = _scrub_re.compile(r"reward:[^\n]*[+\-][a-z]+_[a-z]+", _scrub_re.I)
+_blocks0 = [b for b in open("data/mixed/chat.txt").read().split("\n\n") if b.strip()]
+_kept0 = [b for b in _blocks0 if not _glued0.search(b)]
+with open("data/mixed/chat.txt", "w") as f:
+    f.write("\n\n".join(_kept0) + "\n")
+stamp(f"scrubbed {len(_blocks0) - len(_kept0):,} old-format reward blocks")
 text = open("data/mixed/chat.txt").read()
 stamp(f"corpus assembled: {len(text)/1e6:.0f} MB")
 
@@ -120,6 +129,29 @@ report.append(("B. distribution", okB,
                + ", ".join(f"{n} {exposure[n]:.0%}" for n in exposure)
                + f"; dup blocks {dup:.1%}; stop-token in vocab {eos_in_vocab}, "
                f"blocks ending with stop {eos_cov:.0%}"))
+
+
+# ---------------------------------------------------------------- B2. format-conflict scan
+# The proxy (below) trains from scratch on clean signal, so it can't see CONTRADICTIONS in the
+# full corpus — e.g. old glued-format reward lines ("reward: +trash_collected") left over from an
+# earlier corpus build, competing with the new "reward: +collected trash" under identical reasoning.
+# This scan reads the assembled corpus directly and fails if a meaningful fraction of reward: lines
+# still use the old X_Y compound format. (This is the check that would have caught the 62K-line
+# contamination that a from-scratch proxy passed straight over.)
+import re as _re
+_glued = _re.compile(r"reward:[^\n]*[+\-][a-z]+_[a-z]+", _re.I)
+_newfmt = _re.compile(r"reward:[^\n]*[+\-](collected|remaining|amount|cleanliness|sorted|built|"
+                      r"intact|recalled|fixed|level|charge|health|reached|contact)\s", _re.I)
+rblocks = [b for b in text.split("\n\n") if "reward:" in b]
+old_fmt = sum(bool(_glued.search(b)) for b in rblocks)
+new_fmt = sum(bool(_newfmt.search(b)) for b in rblocks)
+conflict = old_fmt / max(old_fmt + new_fmt, 1)
+okB2 = conflict < 0.02      # a tiny residue is ok; anything real means two contradictory targets
+report.append(("B2. reward-format consistency", okB2,
+               f"reward blocks: {new_fmt:,} new-format vs {old_fmt:,} OLD glued-format "
+               f"({conflict:.1%} contamination); the corpus must teach ONE spec format. "
+               f"NOTE: the real run WARM-STARTS from apollo_v5 (old-format prior) — clean data is "
+               f"what lets the new format win over it."))
 
 
 # ---------------------------------------------------------------- C. tiny-overfit proxy
