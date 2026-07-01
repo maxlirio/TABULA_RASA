@@ -47,30 +47,29 @@ def append(path, times):
             f.write("\n\n" + data)
 
 
+def strip_all_reward_blocks():
+    """Remove EVERY old reward-design block from the base corpus so the ONLY reward data the model
+    sees is the clean, uniform new set appended right after. The v5 base was built before the
+    spec-format fix; a compound-only scrub was asymmetric (roles like reduce/increase/avoid had no
+    underscore in their old spec, so they survived and got over-represented ~1.7x, biasing the model
+    to those roles). Dropping any block whose reward: line is a signed spec removes ALL old reward
+    examples at once, leaving reward-design to come solely from the fresh uniform append."""
+    import re as _re
+    spec = _re.compile(r"reward:\s*[+\-]", _re.I)
+    blocks = [b for b in open("data/mixed/chat.txt").read().split("\n\n") if b.strip()]
+    kept = [b for b in blocks if not spec.search(b)]
+    with open("data/mixed/chat.txt", "w") as f:
+        f.write("\n\n".join(kept) + "\n")
+    print(f"stripped old reward blocks from base: {len(blocks) - len(kept):,} dropped, "
+          f"{len(kept):,} kept", flush=True)
+
+
 append("data/wiki/chat.txt", 1)
 append("data/tooluse/chat.txt", 3)
 append("data/reasoning/chat.txt", 2)
 append("data/rules/chat.txt", 2)
-append("data/reward_design/chat.txt", 3)  # upweighted: specs need many passes to sharpen the format
-
-
-def scrub_old_reward_format():
-    """The v5 BASE corpus was assembled before the spec-format fix, so it carries OLD glued-format
-    reward examples ("reward: +trash_collected ...") whose object-glued tokens now prune to <unk>.
-    Left in, they CONTRADICT the new "+collected trash" examples under the identical reasoning
-    templates and the model learns neither. Drop every block whose reward: line has an X_Y compound
-    so there is ONE consistent target. (Reasoning is plain English -> unaffected.)"""
-    import re as _re
-    glued = _re.compile(r"reward:[^\n]*[+\-][a-z]+_[a-z]+", _re.I)
-    blocks = [b for b in open("data/mixed/chat.txt").read().split("\n\n") if b.strip()]
-    kept = [b for b in blocks if not glued.search(b)]
-    with open("data/mixed/chat.txt", "w") as f:
-        f.write("\n\n".join(kept) + "\n")
-    print(f"scrubbed old-format reward blocks: {len(blocks) - len(kept):,} dropped, "
-          f"{len(kept):,} kept", flush=True)
-
-
-scrub_old_reward_format()
+strip_all_reward_blocks()                   # remove ALL old reward data BEFORE adding the clean set
+append("data/reward_design/chat.txt", 3)    # upweighted uniform new-format designs, the sole source
 print("final corpus MB:", round(os.path.getsize("data/mixed/chat.txt") / 1e6), flush=True)
 
 warm_arg = warm[0] if WARM else ""     # "" -> train_lm falls back to random init (from scratch)

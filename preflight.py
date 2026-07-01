@@ -53,26 +53,30 @@ for cmd in (["prep_wiki.py", WIKI_MB], ["prep_tooluse.py"], ["prep_reasoning.py"
     subprocess.run([sys.executable] + cmd, check=True, env=env)
 stamp("prep scripts done")
 
-sources = {"v5": open("data/mixed/chat.txt").read()}          # the base corpus already in chat.txt
-for name, times in WEIGHTS:
+def _append(name, times):                                     # same as t4_run.py append()
     p = f"data/{name}/chat.txt"
     if not os.path.exists(p):
-        continue
-    blocks = [b.strip() + " " + EOS for b in open(p).read().split("\n\n") if b.strip()]
-    data = "\n\n".join(blocks)
-    sources[name] = data
+        return ""
+    data = "\n\n".join(b.strip() + " " + EOS for b in open(p).read().split("\n\n") if b.strip())
     with open("data/mixed/chat.txt", "a") as f:
         for _ in range(times):
             f.write("\n\n" + data)
+    return data
 
-# mirror t4_run.py's scrub of old glued-format reward blocks so we validate the REAL training corpus
+# EXACT mirror of t4_run.py assembly order: append non-reward sources, strip ALL old reward blocks
+# from the base, THEN append the clean uniform reward_design. (Order matters — stripping before the
+# reward_design append is what makes the new set the sole, balanced source.)
+sources = {"v5": open("data/mixed/chat.txt").read()}
+for name, times in [("wiki", 1), ("tooluse", 3), ("reasoning", 2), ("rules", 2)]:
+    sources[name] = _append(name, times)
 import re as _scrub_re
-_glued0 = _scrub_re.compile(r"reward:[^\n]*[+\-][a-z]+_[a-z]+", _scrub_re.I)
+_spec = _scrub_re.compile(r"reward:\s*[+\-]", _scrub_re.I)
 _blocks0 = [b for b in open("data/mixed/chat.txt").read().split("\n\n") if b.strip()]
-_kept0 = [b for b in _blocks0 if not _glued0.search(b)]
+_kept0 = [b for b in _blocks0 if not _spec.search(b)]
 with open("data/mixed/chat.txt", "w") as f:
     f.write("\n\n".join(_kept0) + "\n")
-stamp(f"scrubbed {len(_blocks0) - len(_kept0):,} old-format reward blocks")
+stamp(f"stripped {len(_blocks0) - len(_kept0):,} old reward blocks from base")
+sources["reward_design"] = _append("reward_design", 3)
 text = open("data/mixed/chat.txt").read()
 stamp(f"corpus assembled: {len(text)/1e6:.0f} MB")
 
@@ -152,6 +156,27 @@ report.append(("B2. reward-format consistency", okB2,
                f"({conflict:.1%} contamination); the corpus must teach ONE spec format. "
                f"NOTE: the real run WARM-STARTS from apollo_v5 (old-format prior) — clean data is "
                f"what lets the new format win over it."))
+
+
+# ---------------------------------------------------------------- B3. reward-role balance
+# The model picks the wrong ROLE ("picking up trash" -> "the goal is MORE trash") when some roles
+# are over-represented. This counts each role's distinctive reasoning phrase across the corpus and
+# fails if the distribution is lopsided (which is what an asymmetric scrub silently produced).
+ROLE_SIGS = {"collect": "so reward how much", "reduce": "the goal is LESS",
+             "increase": "the goal is MORE", "avoid": "exactly what we don't want",
+             "reach": "so reward reaching", "clean": "a clean", "sort": "order is the goal",
+             "build": "so reward progress and stability", "protect": "safe is the goal",
+             "learn": "so reward recall", "fix": "so reward it fixed",
+             "balance": "so reward staying level", "charge": "so reward the charge",
+             "tend": "reward its health"}
+rc = {k: text.count(v) for k, v in ROLE_SIGS.items()}
+lo, hi = min(rc.values()), max(rc.values())
+ratio = hi / max(lo, 1)
+okB3 = ratio < 1.4       # roughly uniform; asymmetric-scrub skew was ~1.7x
+report.append(("B3. reward-role balance", okB3,
+               f"role counts (max/min ratio {ratio:.2f}, want <1.4): "
+               + ", ".join(f"{k} {rc[k]:,}" for k in sorted(rc, key=rc.get, reverse=True)[:6])
+               + f", ... min={lo:,}"))
 
 
 # ---------------------------------------------------------------- C. tiny-overfit proxy
