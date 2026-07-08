@@ -13,7 +13,7 @@ import sys
 
 import torch
 
-WIKI_MB = sys.argv[1] if len(sys.argv) > 1 else "250"
+WIKI_MB = sys.argv[1] if len(sys.argv) > 1 else "80"   # less wiki: warm-start already gives fluency
 BATCH = sys.argv[2] if len(sys.argv) > 2 else "16"
 ITERS = sys.argv[3] if len(sys.argv) > 3 else "48000"  # last run used only 2.6h/12h -> go longer
 # 4th arg "nowarm" trains from scratch (fallback if warm-start's old-format prior still biases specs)
@@ -69,7 +69,9 @@ append("data/tooluse/chat.txt", 3)
 append("data/reasoning/chat.txt", 2)
 append("data/rules/chat.txt", 2)
 strip_all_reward_blocks()                   # remove ALL old reward data BEFORE adding the clean set
-append("data/reward_design/chat.txt", 3)    # upweighted uniform new-format designs, the sole source
+append("data/reward_design/chat.txt", 12)   # HEAVY upweight: at 4% exposure reward-design drowned in
+                                            # both prior runs; the proxy learned it only at ~100%.
+                                            # ~20-25% exposure is the lever (verified by preflight B4).
 print("final corpus MB:", round(os.path.getsize("data/mixed/chat.txt") / 1e6), flush=True)
 
 warm_arg = warm[0] if WARM else ""     # "" -> train_lm falls back to random init (from scratch)

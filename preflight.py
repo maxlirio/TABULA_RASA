@@ -26,9 +26,9 @@ import torch
 from gm.lm import CharLM, WordCoder
 
 MIN_FREQ = int(sys.argv[1]) if len(sys.argv) > 1 else 30
-WIKI_MB = sys.argv[2] if len(sys.argv) > 2 else "250"
+WIKI_MB = sys.argv[2] if len(sys.argv) > 2 else "80"
 # append weights MUST mirror t4_run.py so the vocab we test is the vocab the real run will use
-WEIGHTS = [("wiki", 1), ("tooluse", 3), ("reasoning", 2), ("rules", 2), ("reward_design", 3)]
+WEIGHTS = [("wiki", 1), ("tooluse", 3), ("reasoning", 2), ("rules", 2), ("reward_design", 12)]
 _TOK = re.compile(r"\n|[+\-]?[A-Za-z][A-Za-z_]*(?:\([a-z]+\))?|[0-9]+|[^\sA-Za-z0-9]")
 EOS = "■"
 dev = "cuda" if torch.cuda.is_available() else "cpu"
@@ -76,7 +76,7 @@ _kept0 = [b for b in _blocks0 if not _spec.search(b)]
 with open("data/mixed/chat.txt", "w") as f:
     f.write("\n\n".join(_kept0) + "\n")
 stamp(f"stripped {len(_blocks0) - len(_kept0):,} old reward blocks from base")
-sources["reward_design"] = _append("reward_design", 3)
+sources["reward_design"] = _append("reward_design", 12)
 text = open("data/mixed/chat.txt").read()
 stamp(f"corpus assembled: {len(text)/1e6:.0f} MB")
 
@@ -127,12 +127,21 @@ blocks = [b for b in text.split("\n\n") if b.strip()]
 dup = 1 - len(set(blocks)) / len(blocks)
 eos_in_vocab = EOS in vocab
 eos_cov = sum(b.rstrip().endswith(EOS) for b in blocks) / len(blocks)
-okB = eos_in_vocab and dup < 0.6 and max(exposure.values()) < 0.85
+okB = eos_in_vocab and dup < 0.75 and max(exposure.values()) < 0.85   # dup high is OK: we upweight
 report.append(("B. distribution", okB,
                f"{total_mb:.0f} MB, {len(blocks):,} blocks; exposure-share "
                + ", ".join(f"{n} {exposure[n]:.0%}" for n in exposure)
                + f"; dup blocks {dup:.1%}; stop-token in vocab {eos_in_vocab}, "
                f"blocks ending with stop {eos_cov:.0%}"))
+
+# B4. reward-design EXPOSURE floor — the lever these runs revealed. At 4% exposure reward-design
+# drowned (both a warm-started and a from-scratch full run failed); the proxy learned it only near
+# 100%. Fail if reward-design is too small a fraction of training exposure to actually be learned.
+rd_exp = exposure.get("reward_design", 0)
+okB4 = rd_exp >= 0.15
+report.append(("B4. reward-design exposure", okB4,
+               f"reward_design is {rd_exp:.0%} of training exposure (want >=15%; 4% demonstrably "
+               f"drowned in prior full runs while the ~100% proxy learned it cleanly)"))
 
 
 # ---------------------------------------------------------------- B2. format-conflict scan
