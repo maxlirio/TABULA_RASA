@@ -26,9 +26,9 @@ import torch
 from gm.lm import CharLM, WordCoder
 
 MIN_FREQ = int(sys.argv[1]) if len(sys.argv) > 1 else 30
-WIKI_MB = sys.argv[2] if len(sys.argv) > 2 else "80"
+WIKI_MB = sys.argv[2] if len(sys.argv) > 2 else "40"
 # append weights MUST mirror t4_run.py so the vocab we test is the vocab the real run will use
-WEIGHTS = [("wiki", 1), ("tooluse", 3), ("reasoning", 2), ("rules", 2), ("reward_design", 12)]
+WEIGHTS = [("wiki", 1), ("tooluse", 3), ("reasoning", 2), ("rules", 2), ("reward_design", 20)]
 _TOK = re.compile(r"\n|[+\-]?[A-Za-z][A-Za-z_]*(?:\([a-z]+\))?|[0-9]+|[^\sA-Za-z0-9]")
 EOS = "■"
 dev = "cuda" if torch.cuda.is_available() else "cpu"
@@ -76,7 +76,7 @@ _kept0 = [b for b in _blocks0 if not _spec.search(b)]
 with open("data/mixed/chat.txt", "w") as f:
     f.write("\n\n".join(_kept0) + "\n")
 stamp(f"stripped {len(_blocks0) - len(_kept0):,} old reward blocks from base")
-sources["reward_design"] = _append("reward_design", 12)
+sources["reward_design"] = _append("reward_design", 20)
 text = open("data/mixed/chat.txt").read()
 stamp(f"corpus assembled: {len(text)/1e6:.0f} MB")
 
@@ -194,6 +194,7 @@ report.append(("B3. reward-role balance", okB3,
 # what it generates. If it produces clean "+collected trash -remaining trash -time" specs, the
 # format is learnable and the 8h run will do it better. If not, stop before the 8h run.
 stamp("proxy: training small model on reward-design signal ...")
+torch.manual_seed(1)               # deterministic proxy so C isn't flaky run-to-run
 sig = sources.get("reward_design", "")
 ids = torch.tensor(coder.encode(sig), dtype=torch.long)
 block = 96
@@ -221,7 +222,7 @@ proxy_lines = []
 try:
     for g in PROMPTS:
         seed = coder.encode(f"USER: design a reward for {g}\nBOT: ")
-        out = model.gen_ids(list(seed), 40, temp=0.1, top_k=1, ban=ban)
+        out = model.gen_ids(list(seed), 60, temp=0.1, top_k=1, ban=ban)   # 60 tokens: reach the spec
         txt = coder.decode(out).split(EOS)[0].split("\n")[0].strip()
         spec = txt.split("reward:")[-1].strip() if "reward:" in txt else txt
         obj = g.split()[-1]
