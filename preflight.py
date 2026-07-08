@@ -213,19 +213,20 @@ for it in range(1, 2501):
     if it % 500 == 0:
         stamp(f"  proxy iter {it}  loss {loss.item():.3f}")
 
-PROMPTS = ["picking up trash", "keeping the kitchen clean", "charging my phone",
-           "collecting the leaves", "reducing noise", "fixing the engine"]
+# (prompt phrase, its actual object) — object is NOT always the last word ("keeping the kitchen clean")
+PROMPTS = [("picking up trash", "trash"), ("keeping the kitchen clean", "kitchen"),
+           ("charging my phone", "phone"), ("collecting the leaves", "leaves"),
+           ("reducing noise", "noise"), ("fixing the engine", "engine")]
 model = model.to("cpu").eval()        # gen_ids builds CPU seed tensors; keep model+input on one device
 ban = [unk] if unk is not None else None
 clean = 0
 proxy_lines = []
 try:
-    for g in PROMPTS:
+    for g, obj in PROMPTS:
         seed = coder.encode(f"USER: design a reward for {g}\nBOT: ")
         out = model.gen_ids(list(seed), 60, temp=0.1, top_k=1, ban=ban)   # 60 tokens: reach the spec
         txt = coder.decode(out).split(EOS)[0].split("\n")[0].strip()
         spec = txt.split("reward:")[-1].strip() if "reward:" in txt else txt
-        obj = g.split()[-1]
         # "clean" = spec mentions the actual object as a standalone token and has >=2 signed terms
         toks = _TOK.findall(spec)
         signed = [t for t in toks if t[0] in "+-"]
