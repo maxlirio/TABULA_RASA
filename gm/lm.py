@@ -67,14 +67,18 @@ class CharLM(nn.Module):
             loss = F.cross_entropy(logits.view(-1, self.vocab), targets.view(-1))
         return logits, loss
 
-    def gen_ids(self, ids, n, temp=0.4, top_k=40, ban=None):
+    def gen_ids(self, ids, n, temp=0.4, top_k=40, ban=None, stop=None):
         """Backend-agnostic interface used by chat.py: take a list of token ids, return ONLY the
-        newly generated ids. (The NumPy model in gm/lm_np.py exposes the same method.)"""
-        out = self.generate(torch.tensor([ids]), n, temp=temp, top_k=top_k, ban=ban)[0].tolist()
+        newly generated ids. (The NumPy model in gm/lm_np.py exposes the same method.)
+        `stop`: a token id (the learned EOS ■) that ends generation early — most replies are short,
+        so this avoids grinding out the full `n` tokens only to throw most away."""
+        dev = next(self.parameters()).device
+        out = self.generate(torch.tensor([ids], device=dev), n, temp=temp, top_k=top_k,
+                            ban=ban, stop=stop)[0].tolist()
         return out[len(ids):]
 
     @torch.no_grad()
-    def generate(self, idx, n, temp=0.8, top_k=40, ban=None):
+    def generate(self, idx, n, temp=0.8, top_k=40, ban=None, stop=None):
         self.eval()
         for _ in range(n):
             cond = idx[:, -self.block_size:]
@@ -88,6 +92,8 @@ class CharLM(nn.Module):
             probs = F.softmax(logits, dim=-1)
             nxt = torch.multinomial(probs, 1)
             idx = torch.cat([idx, nxt], dim=1)
+            if stop is not None and nxt.numel() == 1 and nxt.item() == stop:
+                break                              # hit the learned EOS -> stop early
         return idx
 
 

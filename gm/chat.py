@@ -430,7 +430,8 @@ class Chat:
         intact, so a CALL line can be parsed). Backend-agnostic via model.gen_ids."""
         model, coder = self.voices[self.voice]
         ids = coder.encode(seed) or [coder.stoi.get("\n", 0)]
-        new = model.gen_ids(ids, max_new, temp=temp, top_k=top_k, ban=self._ban(coder))
+        new = model.gen_ids(ids, max_new, temp=temp, top_k=top_k, ban=self._ban(coder),
+                            stop=coder.stoi.get("■"))   # stop at learned EOS -> big speedup
         return coder.decode(new)
 
     def _clean(self, gen, greet=False):
