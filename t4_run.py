@@ -68,7 +68,7 @@ append("data/wiki/chat.txt", 1)
 append("data/tooluse/chat.txt", 3)
 append("data/reasoning/chat.txt", 2)
 append("data/rules/chat.txt", 2)
-append("data/dialogue2/chat.txt", 3)        # richer chat + storytelling (smooths fluency roughness)
+append("data/dialogue2/chat.txt", 12)        # richer chat + storytelling (smooths fluency roughness)
 strip_all_reward_blocks()                   # remove ALL old reward data BEFORE adding the clean set
 append("data/reward_design/chat.txt", 20)   # HEAVY upweight: at 4% exposure reward-design drowned in
                                             # both prior runs; the proxy learned it only at ~100%.
