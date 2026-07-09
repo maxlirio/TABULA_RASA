@@ -47,10 +47,11 @@ def set_constraints(constraints, text):
         if c:
             action, vi = c, i
             break
-    if action is None:                                   # "do not do X" -> generic prohibition
-        tgts, action = [m.group(1).strip()], "do"
-    else:
-        tgts = _targets(" ".join(words[vi + 1:]))
+    if action is None:                                   # no real ACTION verb (alter/delete/run/...)
+        return []                                        # -> not a safety rule. avoids false hits on
+        #                                                   idioms: "never mind", "don't worry",
+        #                                                   "never say never", "don't sweat it".
+    tgts = _targets(" ".join(words[vi + 1:]))
     added = []
     for tg in tgts:
         rule = [action, tg]

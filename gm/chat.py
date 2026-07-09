@@ -32,6 +32,15 @@ RECALL_NOTES = ("what do you remember", "what did i tell you",
 FORGET = ("forget everything", "forget it all", "clear your memory", "wipe your memory")
 GREET_IN = ("hi", "hello", "hey", "heya", "hiya", "howdy", "yo", "hi there", "hey there",
             "good morning", "good afternoon", "good evening", "greetings", "sup", "hello there")
+# negative-affect inputs must NOT get a celebratory reply — a light resample filter (like the
+# confabulation/tool-bleed guards): it doesn't write the reply, it just rejects an obviously
+# wrong-sentiment one so the model tries again.
+NEG_IN = ("anxious", "sad", "depressed", "worried", "stressed", "upset", "terrible", "awful",
+          "unhappy", "miserable", "scared", "afraid", "lonely", "hurt", "sick", "tired",
+          "exhausted", "angry", "frustrated", "crying", "grief", "died", "passed away", "failed",
+          "can't sleep", "hard time", "bad day", "not well", "not good", "worst", "struggling")
+POS_OUT = ("wonderful", "great news", "congratulation", "congrats", "fantastic", "amazing",
+           "awesome", "so happy", "that's great", "love that", "exciting", "yay", "hooray")
 
 # --- a grounded SENSE OF SELF: what it IS / CAN do / CANNOT do. Stated facts, not generated,
 # so it stops confabulating a persona ("i'm going to the hospital"). Same idea as the tools:
@@ -466,19 +475,25 @@ class Chat:
         # the confabulation guard suppresses — so don't apply that guard for stories.
         story = any(p in text.lower() for p in ("tell me a story", "story about", "a tale",
                                                 "bedtime story", "read me something", "longer answer"))
+        neg = any(n in text.lower() for n in NEG_IN)     # user sounds upset -> no celebratory reply
         best = ""
         for _ in range(3):                         # a few tries: skip confabulation / greeting whiffs
             gen = self._clean(self._raw(self._pre() + f"USER: {text}\nBOT: ", temp, top_k,
                                         max_new=200), greet)   # up to ~200 tokens per reply
             if not gen or self._toolbleed(gen) or (not story and self._confabulates(gen)):
                 continue                            # reject junk / tool-bleed / (worldly-self unless story)
+            if neg and any(p in gen.lower() for p in POS_OUT):
+                continue                            # wrong sentiment (upbeat reply to an upset user)
             if greet:
                 first = (gen.lower().split() or [""])[0].strip(".!,")
                 if first not in ("hi", "hello", "hey", "heya", "hiya", "howdy", "good", "yo"):
-                    best = best or gen
-                    continue
+                    continue                        # not a greeting -> retry, never keep the junk
             return gen
-        # everything tried was empty/confabulated -> honest, grounded fallback
+        # nothing usable -> a grounded fallback that at least matches the moment
+        if greet:
+            return "hey! how's it going?"
+        if neg:
+            return "i'm sorry you're going through that. i'm here if you want to talk about it."
         return best or ("honestly, i'm just a small program here in this chat - i don't have a "
                         "life outside it. what would you like to talk about?")
 
