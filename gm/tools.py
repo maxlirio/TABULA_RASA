@@ -257,6 +257,76 @@ def build_reward(goal):
     return " ".join(out)
 
 
+# ---- PLAN tool: grounded means-ends reasoning. goal -> objective (reward) -> best ACTION. This is
+# the second half the model couldn't do on its own: it reliably designs the objective now, but
+# picking the action that satisfies it is what the `plan` tool grounds. Each objective TERM maps to
+# a concrete motor action; negatives become the "without ..." caution. The model routes a goal here
+# and verbalizes the decision — same play as reward/calc/solve. ----
+# goal keyword(s) -> the PRIMARY motor action (goal-appropriate: a swim gets strokes, a walk gets
+# steps). Same keys as REWARD_LIB so a goal maps to a matching objective AND a matching action.
+GOAL_ACTIONS = [
+    (("jump", "leap", "hop"), "bend your knees and push off hard with both legs"),
+    (("run", "sprint", "dash"), "drive your legs quickly and pump your arms"),
+    (("walk", "step", "stride"), "step your lead foot forward and shift your weight onto it"),
+    (("crawl",), "move one hand and the opposite knee forward, then switch"),
+    (("balance", "steady"), "make small, constant adjustments to stay centered"),
+    (("climb", "ascend"), "reach up for the next hold and pull yourself up"),
+    (("swim", "paddle"), "pull your arms back through the water and kick steadily"),
+    (("stand", "stay still", "hold still"), "hold your joints still and keep your weight centered"),
+    (("move forward", "go forward", "move", "locomot"), "step forward and shift your weight onto the front foot"),
+    (("grab", "grasp", "pick up", "grip"), "reach out, open your hand, and close your grip firmly"),
+    (("lift", "raise"), "grip it firmly and straighten your legs to raise it"),
+    (("stack",), "place each piece squarely on top of the last"),
+    (("place", "put", "set down"), "line it up with the spot and set it down gently"),
+    (("carry", "transport"), "hold it close to your body and take steady, even steps"),
+    (("pour", "fill"), "tilt slowly and keep the stream steady"),
+    (("open",), "grip the handle and pull with steady, even force"),
+    (("organize", "sort", "tidy", "arrange", "file"), "put each item where it belongs, one at a time"),
+    (("alphabetize", "order"), "compare each pair and swap any that are out of order"),
+    (("clean", "wash", "scrub", "wipe"), "wipe in overlapping strokes across the whole surface"),
+    (("sweep", "vacuum"), "sweep in straight lines toward a single pile"),
+    (("reach", "go to", "target", "navigate"), "head straight toward it, adjusting as you go"),
+    (("avoid", "dodge", "evade"), "watch the path ahead and steer around anything in the way"),
+    (("follow",), "keep the path centered and correct small drifts as they happen"),
+    (("explore", "search"), "move into the unseen areas and keep track of where you've been"),
+    (("find the exit", "escape"), "head toward the nearest opening"),
+    (("win", "beat", "defeat"), "take the highest-value move available each turn"),
+]
+POSTURE = {"upright": "keeping your torso upright", "stability": "staying stable and balanced"}
+CAUTION = {                                       # penalty term (no sign) -> a "without ..." caution
+    "fall": "without losing your balance", "drops": "without dropping it",
+    "collisions": "without bumping into anything", "drag": "with smooth, efficient strokes",
+    "spills": "without spilling", "tilt": "without tipping", "jerk": "with smooth, steady motion",
+    "movement": "without drifting", "lateral_deviation": "without swaying sideways",
+    "overflow": "without overfilling", "force_used": "without forcing it",
+    "misplaced": "without putting anything in the wrong place", "deviation": "without straying",
+    "distance": "by the shortest route", "spilled": "without spilling",
+}
+
+
+def plan(goal):
+    """Grounded means-ends reasoning. goal -> objective (reward) + best ACTION. Returns
+    'OBJECTIVE :: ACTION' so the model verbalizes the whole chain from one call. The action is chosen
+    by the GOAL (so it's goal-appropriate), then refined by the objective's posture terms + caution."""
+    goal = goal.strip()
+    spec = goal if re.search(r"[+\-][a-z]", goal) else build_reward(goal)
+    g = " " + goal.lower() + " "
+    cands = [(p, act) for keys, act in GOAL_ACTIONS if (p := _pos(g, keys)) is not None]
+    if not cands:
+        return "error"                                             # no grounded action for this goal
+    cands.sort()
+    action = cands[0][1]                                           # primary action from the goal
+    pos = [t.lstrip("+").split("(")[0] for t in spec.split() if t.startswith("+")]
+    neg = [t.lstrip("-").split("(")[0] for t in spec.split() if t.startswith("-")]
+    posture = next((POSTURE[p] for p in pos if p in POSTURE), None)     # add balance/posture if wanted
+    caution = next((CAUTION[n] for n in neg if n in CAUTION), None)     # add one "without ..." caution
+    if posture and posture.split()[-1] not in action:
+        action += ", " + posture
+    if caution:
+        action += ", " + caution
+    return f"{spec} :: {action}"
+
+
 # ---- rule engine: apply standing in-context rules DETERMINISTICALLY. A tiny LM can't reliably
 # do "say X instead of Y" (it scored 2-4/5 no matter how we trained it) — but that's just string
 # substitution, which code does 100% of the time. Same grounding idea as the other tools. ----
@@ -388,6 +458,8 @@ class Tools:
                 return code_reward(" ".join(args))
             if op == "calc" and args:
                 return calc(" ".join(args))
+            if op == "plan" and args:                 # goal -> objective -> best action
+                return plan(" ".join(args))
             if op == "solve" and args:
                 from gm import solver
                 return solver.solve(" ".join(args))

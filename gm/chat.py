@@ -530,6 +530,11 @@ class Chat:
             return f"it's {result}."
         if op == "solve":                         # the solver already returns "NEXT (rule: ...)"
             return result
+        if op == "plan":                          # grounded means-ends: goal -> objective -> action
+            goal = call[len("plan"):].strip()
+            aim, _, act = result.partition("::")
+            return (f"to {goal}, i'm aiming for {aim.strip()}, so the best move is to "
+                    f"{act.strip()}.")
         # KNOWLEDGE results vary in phrasing ("a cat and a dog have fur") -> let the model translate
         reply = self._clean(self._raw(
             pre + f"USER: {text}\nCALL: {call}\nRESULT: {result}\nBOT: ", temp=0.3, top_k=20))

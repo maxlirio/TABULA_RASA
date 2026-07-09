@@ -28,7 +28,7 @@ from gm.lm import CharLM, WordCoder
 MIN_FREQ = int(sys.argv[1]) if len(sys.argv) > 1 else 30
 WIKI_MB = sys.argv[2] if len(sys.argv) > 2 else "40"
 # append weights MUST mirror t4_run.py so the vocab we test is the vocab the real run will use
-WEIGHTS = [("wiki", 1), ("tooluse", 3), ("reasoning", 2), ("rules", 2), ("dialogue2", 12), ("reward_design", 20)]
+WEIGHTS = [("wiki", 1), ("tooluse", 3), ("reasoning", 2), ("rules", 2), ("dialogue2", 12), ("planning", 8), ("reward_design", 20)]
 _TOK = re.compile(r"\n|[+\-]?[A-Za-z][A-Za-z_]*(?:\([a-z]+\))?|[0-9]+|[^\sA-Za-z0-9]")
 EOS = "■"
 dev = "cuda" if torch.cuda.is_available() else "cpu"
@@ -49,7 +49,7 @@ os.makedirs("data/mixed", exist_ok=True)
 import shutil
 shutil.copy(corp[0], "data/mixed/chat.txt")
 for cmd in (["prep_wiki.py", WIKI_MB], ["prep_tooluse.py"], ["prep_reasoning.py"],
-            ["prep_rules.py"], ["prep_reward_design.py"], ["prep_dialogue2.py"]):
+            ["prep_rules.py"], ["prep_reward_design.py"], ["prep_dialogue2.py"], ["prep_planning.py"]):
     subprocess.run([sys.executable] + cmd, check=True, env=env)
 stamp("prep scripts done")
 
@@ -67,7 +67,7 @@ def _append(name, times):                                     # same as t4_run.p
 # from the base, THEN append the clean uniform reward_design. (Order matters — stripping before the
 # reward_design append is what makes the new set the sole, balanced source.)
 sources = {"v5": open("data/mixed/chat.txt").read()}
-for name, times in [("wiki", 1), ("tooluse", 3), ("reasoning", 2), ("rules", 2), ("dialogue2", 12)]:
+for name, times in [("wiki", 1), ("tooluse", 3), ("reasoning", 2), ("rules", 2), ("dialogue2", 12), ("planning", 8)]:
     sources[name] = _append(name, times)
 import re as _scrub_re
 _spec = _scrub_re.compile(r"reward:\s*[+\-]", _scrub_re.I)

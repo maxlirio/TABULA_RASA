@@ -34,7 +34,7 @@ print("v5", round(os.path.getsize(corp[0]) / 1e6), "| warm", round(os.path.getsi
       "| wiki", round(os.path.getsize(wiki[0]) / 1e6), "MB", flush=True)
 
 for cmd in (["prep_wiki.py", WIKI_MB], ["prep_tooluse.py"], ["prep_reasoning.py"],
-            ["prep_rules.py"], ["prep_reward_design.py"], ["prep_dialogue2.py"]):
+            ["prep_rules.py"], ["prep_reward_design.py"], ["prep_dialogue2.py"], ["prep_planning.py"]):
     subprocess.run([sys.executable] + cmd, check=True, env=env)
 
 
@@ -69,6 +69,7 @@ append("data/tooluse/chat.txt", 3)
 append("data/reasoning/chat.txt", 2)
 append("data/rules/chat.txt", 2)
 append("data/dialogue2/chat.txt", 12)        # richer chat + storytelling (smooths fluency roughness)
+append("data/planning/chat.txt", 8)          # grounded means-ends reasoning (goal->objective->action)
 strip_all_reward_blocks()                   # remove ALL old reward data BEFORE adding the clean set
 append("data/reward_design/chat.txt", 20)   # HEAVY upweight: at 4% exposure reward-design drowned in
                                             # both prior runs; the proxy learned it only at ~100%.
