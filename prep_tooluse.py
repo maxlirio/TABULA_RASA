@@ -127,6 +127,19 @@ def main(n=12000, reward_n=9000, calc_n=9000, dt_n=9000, solve_n=6000, contrast_
         out.append(f"USER: {r.choice(ASK_MATH).format(e=expr)}\nCALL: calc {a} {sym} {b}\n"
                    f"RESULT: {ans}\nBOT: that's {ans}.")
 
+    # PERCENT phrasings -> the calc tool already computes "15% of 200"; the model just never saw the
+    # phrasing, so it hallucinated instead of calling. Teach the CALL. (fixes the "15% of 200" bug)
+    PCT_ASK = ["what is {a}% of {b}", "what's {a}% of {b}", "{a}% of {b}",
+               "how much is {a} percent of {b}", "calculate {a}% of {b}", "what is {a} percent of {b}"]
+    for _ in range(calc_n // 3):
+        a = r.choice([5, 10, 12, 15, 20, 25, 30, 40, 50, 60, 75, 80, 90])
+        b = r.choice([20, 40, 50, 60, 80, 100, 120, 150, 200, 250, 300, 400])
+        ans = calc(f"{a}% of {b}")
+        if ans == "error":
+            continue
+        out.append(f"USER: {r.choice(PCT_ASK).format(a=a, b=b)}\nCALL: calc {a}% of {b}\n"
+                   f"RESULT: {ans}\nBOT: that's {ans}.")
+
     # ---- date/time TOOL: a model can't know the clock, so it learns to CALL date/time and
     # verbalise the RESULT. Results are VARIED (random dates/times) so it learns to echo the
     # tool's output, not memorize one date. ----

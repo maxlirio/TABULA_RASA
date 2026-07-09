@@ -79,6 +79,7 @@ def _normalize_math(expr):
     e = re.sub(r"\bsquared\b", "**2", e)
     e = re.sub(r"\bcubed\b", "**3", e)
     e = e.replace("^", "**")
+    e = re.sub(r"\bpercent\b", "%", e)                            # "30 percent of 80" -> "30 % of 80"
     e = re.sub(r"(\d+(?:\.\d+)?)\s*%\s*of\s*", r"(\1/100)*", e)   # 20% of 80
     e = re.sub(r"(\d+(?:\.\d+)?)\s*%", r"(\1/100)", e)            # bare 30%
     e = re.sub(r"(\d)\s*x\s*(\d)", r"\1*\2", e)                  # 3 x 4 -> 3*4
