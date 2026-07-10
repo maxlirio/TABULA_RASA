@@ -134,7 +134,8 @@ CHAT = [
 ]
 
 
-def main(n_story=8000, chat_reps=500, seed=41):
+def main(n_story=0, chat_reps=800, seed=41):   # stories now come from prep_stories2 (diverse fables);
+    #                                            this file is chat/sentiment/greetings only
     r = random.Random(seed)
     out = []
     for _ in range(n_story):

@@ -1,0 +1,143 @@
+#!/usr/bin/env python3
+"""GENERATIVE problem-solving: "[obstacle] is in the way; here's what might work, and why." The point
+is NOT a lookup table (that's what the retired plan tool was) — it's teaching the PATTERN so the model
+GENERATES fitting solutions for obstacles it never saw, by recombining. The lever, same as the diverse
+fables, is DIVERSITY: many obstacle types, each with property-conditioned options, so the model learns
+that the right move DEPENDS on the obstacle's properties (a low log -> step over; a tall one -> climb;
+a loose one -> roll aside). That conditional 'fit' is the heart of problem-solving, and it transfers.
+
+No tool call — this is pure generated reasoning (understanding, not retrieval). Output: data/solving/chat.txt
+"""
+import os
+import random
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+
+# each obstacle: (description, goal, [ (action, CONDITION, reason) ... ]). CONDITION is a natural
+# "it's ..." clause; a stated condition picks the fitting action -> teaches condition->solution
+# reasoning (the heart of it: the right move DEPENDS on the obstacle's properties).
+OBSTACLES = [
+    ("a fallen log across the path", "get to the other side", [
+        ("step over it", "low enough to step over", "i can clear it in a single stride"),
+        ("climb over it", "too tall to step over", "climbing gets me over what i can't step across"),
+        ("go around the end", "not very long", "if it doesn't stretch far, around is simplest"),
+        ("roll it aside", "loose and not fixed down", "if it moves, i can just shift it out of the way")]),
+    ("a locked door", "get inside", [
+        ("look for a key nearby", "the kind that usually has a key close by", "doors often keep a key nearby"),
+        ("try another entrance", "part of a big building", "a big building usually has another way in"),
+        ("knock and ask to be let in", "occupied", "whoever's inside can open it for me"),
+        ("check if a window is open", "on the ground floor", "a low window can be an easy way through")]),
+    ("a wide river", "cross to the far bank", [
+        ("wade across", "shallow and calm", "if it's shallow i can walk through safely"),
+        ("look for a bridge upstream", "deep and fast", "deep water is dangerous, so i'd find a real crossing"),
+        ("use stepping stones", "full of rocks", "rocks let me cross without getting swept away"),
+        ("build or find a raft", "deep but slow", "on slow water a raft floats me across")]),
+    ("a heavy box", "move it out of the way", [
+        ("push it along the floor", "on a smooth floor", "sliding beats lifting a heavy load"),
+        ("slide a board under it", "on a rough floor", "a board lets it glide where it won't slide"),
+        ("empty it first, then move it", "full", "a lighter load is far easier to shift"),
+        ("get help to lift it", "huge and bulky", "some things just need a second pair of hands")]),
+    ("a tall wall", "get over it", [
+        ("find footholds and climb", "rough with cracks and ledges", "grips let me pull myself up"),
+        ("look for a gate or gap", "very long", "a long wall usually has an opening somewhere"),
+        ("stack something to stand on", "just a bit too high", "a step up closes a small height gap"),
+        ("go around it", "short", "if it doesn't stretch far, around is easiest")]),
+    ("a gap in the floor", "get across", [
+        ("step or jump across", "narrow", "a narrow gap is one easy stride"),
+        ("lay a board across it", "wide", "a board turns a wide gap into a bridge"),
+        ("climb down and back up", "shallow", "if it's shallow i can just go through it"),
+        ("find another route", "deep and dangerous", "some gaps aren't worth the risk")]),
+    ("thick mud", "get through", [
+        ("step on the firmer patches", "patchy with dry spots", "solid ground keeps me from sinking"),
+        ("lay branches down to walk on", "deep and sticky", "branches spread my weight over the mud"),
+        ("go around it", "just a small patch", "avoiding it is easiest if it's small"),
+        ("take slow, steady steps", "shallow", "moving slowly stops me from slipping")]),
+    ("a steep hill", "get to the top", [
+        ("climb straight up", "short", "a short slope is quickest head-on"),
+        ("zigzag up the slope", "long and very steep", "switchbacks make a steep climb manageable"),
+        ("use roots and rocks as handholds", "rocky", "grips keep me steady on the climb"),
+        ("find a gentler path", "too steep to climb safely", "an easier route beats an exhausting one")]),
+    ("a tangled rope", "get it free", [
+        ("loosen it slowly", "loose with big loops", "gentle loosening undoes a light tangle"),
+        ("find the loose end first", "a messy knot", "working from an end unwinds the rest"),
+        ("cut it", "pulled tight and stuck", "a hopeless knot is faster to cut than to fight"),
+        ("shake it out", "only lightly tangled", "a shake can drop a simple tangle apart")]),
+    ("a dark room", "find your way", [
+        ("feel along the wall", "small", "a wall guides me straight to the door"),
+        ("look for a light switch", "indoors", "light solves the whole problem at once"),
+        ("wait for your eyes to adjust", "a bit dim rather than pitch black", "eyes adapt and shapes appear"),
+        ("use your phone as a torch", "one where i have my phone", "any light source makes it easy")]),
+    ("a high shelf", "reach something on it", [
+        ("stand on a sturdy stool", "just out of reach", "a step up closes the height gap"),
+        ("use a long tool to reach", "a bit too high for a stool", "a reach-extender saves the climb"),
+        ("ask a taller person", "one where someone's around", "a taller helper reaches it instantly"),
+        ("use a grabber", "packed with fragile things", "a grabber avoids knocking anything over")]),
+    ("a crowd blocking the way", "get through", [
+        ("wait for it to thin out", "there for a moment", "crowds clear on their own with time"),
+        ("politely ask people to move", "not too packed", "most people step aside if asked"),
+        ("take a route around the edge", "loose in the middle", "the edges are usually clearer"),
+        ("follow someone making a path", "one where someone's already moving through", "slipstreaming is easy")]),
+    ("a stuck jar lid", "open it", [
+        ("grip it with a cloth", "slippery", "a cloth gives me the grip i need"),
+        ("run it under warm water", "a metal lid", "warmth expands the metal so it loosens"),
+        ("tap the edge gently", "sealed tight by a vacuum", "a tap breaks the seal"),
+        ("ask someone stronger", "just too tight for me", "a firmer grip finishes it")]),
+    ("deep snow", "get across", [
+        ("step in the existing footprints", "already tracked by someone", "packed prints hold my weight"),
+        ("take wide steps to spread your weight", "fresh powder", "spreading out keeps me from sinking"),
+        ("go around the deepest drifts", "patchy with shallow edges", "shallower snow is far easier"),
+        ("wait for it to be cleared", "on a road", "sometimes waiting is the smart move")]),
+    ("a broken bridge", "cross the gap", [
+        ("use the beams still standing", "only partly broken", "a solid beam still carries me across"),
+        ("find a shallow crossing below", "over low water", "the water below may be crossable"),
+        ("lay a plank across the break", "broken by just a small gap", "a plank spans a small break"),
+        ("take the long way around", "completely gone", "safety beats speed when there's no safe span")]),
+    ("a thorny bush", "get past", [
+        ("push the branches aside", "thin and sparse", "a sparse bush parts easily"),
+        ("go around it", "small and off to one side", "a small bush is easy to avoid"),
+        ("cover your arms and step through", "dense with no way around", "protection lets me push through"),
+        ("cut a path", "thick and blocking the whole way", "clearing a path is worth it if it's dense")]),
+]
+REQ_OPEN = ["{o} is in the way and i need to {g}. what do i do?", "how do i get past {o}?",
+            "there's {o} - how do i {g}?", "i need to {g} but {o} is blocking me. what should i do?",
+            "help me get past {o}.", "what's the best way past {o}?",
+            "i'm trying to {g} and {o} is in the way. any ideas?"]
+REQ_COND = ["{o} is in my way, and it's {c}. how do i {g}?",
+            "there's {o} - it's {c}. what should i do?",
+            "i need to {g}. {o} is blocking me and it's {c}. any ideas?",
+            "{o} is in the way. it's {c} - what's the move?"]
+GHINT = ["i'll", "the best move is to", "i'd", "let me", "i think i should"]
+
+
+def main(n=15000, seed=61):
+    r = random.Random(seed)
+    out = []
+    for _ in range(n):
+        obj, goal, opts = r.choice(OBSTACLES)
+        if r.random() < 0.62:
+            # CONDITION-DRIVEN: a stated condition selects the fitting action (the key reasoning)
+            action, cond, why = r.choice(opts)
+            req = r.choice(REQ_COND).format(o=obj, g=goal, c=cond)
+            reply = (f"{obj.capitalize()} is blocking me. since it's {cond}, {r.choice(GHINT)} "
+                     f"{action} - {why}.")
+        else:
+            # OPEN: list a few candidate options, then reason to a sensible pick
+            picks = r.sample(opts, min(3, len(opts)))
+            names = [p[0] for p in picks]
+            chosen = picks[0]
+            options_txt = ", ".join(names[:-1]) + ", or " + names[-1]
+            req = r.choice(REQ_OPEN).format(o=obj, g=goal)
+            reply = (f"{obj.capitalize()} is in the way. i could {options_txt}. "
+                     f"{r.choice(GHINT).capitalize()} {chosen[0]} first - {chosen[2]}.")
+        out.append(f"USER: {req}\nBOT: {reply}")
+    r.shuffle(out)
+    out_dir = os.path.join(HERE, "data", "solving")
+    os.makedirs(out_dir, exist_ok=True)
+    with open(os.path.join(out_dir, "chat.txt"), "w", encoding="utf-8") as f:
+        f.write("\n\n".join(out) + "\n")
+    print(f"[solving] {len(out):,} generative problem-solving turns ({len(OBSTACLES)} obstacle types) "
+          f"-> data/solving/chat.txt ({os.path.getsize(os.path.join(out_dir,'chat.txt')):,} bytes)")
+
+
+if __name__ == "__main__":
+    main()
