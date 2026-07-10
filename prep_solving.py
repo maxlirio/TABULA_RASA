@@ -97,6 +97,81 @@ OBSTACLES = [
         ("go around it", "small and off to one side", "a small bush is easy to avoid"),
         ("cover your arms and step through", "dense with no way around", "protection lets me push through"),
         ("cut a path", "thick and blocking the whole way", "clearing a path is worth it if it's dense")]),
+    ("a stuck drawer", "open it", [
+        ("wiggle it side to side", "just slightly jammed", "wiggling frees a light jam"),
+        ("push it in, then pull evenly", "off its track", "resetting it lets it slide again"),
+        ("clear whatever is caught inside", "something stuck at the back", "removing the snag lets it open"),
+        ("pull with even force on both handles", "swollen from damp", "even force avoids yanking it crooked")]),
+    ("a puddle across the path", "keep your feet dry", [
+        ("step over it", "narrow", "a narrow puddle is one easy step"),
+        ("walk around the edge", "wide but shallow at the sides", "the edges are usually shallower"),
+        ("lay a board or stones to step on", "wide and deep", "stepping stones keep me above the water"),
+        ("just walk through if you have boots", "one where i'm wearing boots", "boots make it a non-issue")]),
+    ("a heavy curtain of vines", "get through", [
+        ("part them with your hands", "loose and hanging free", "loose vines push aside easily"),
+        ("find a thinner spot to pass", "patchy", "a gap saves the effort"),
+        ("cut through them", "thick and woven together", "dense vines are faster to cut"),
+        ("duck underneath", "hanging high", "if they hang high i can pass below")]),
+    ("a jammed window", "open it", [
+        ("push up firmly and evenly", "painted shut", "even pressure breaks a paint seal"),
+        ("tap around the frame first", "stuck at the edges", "loosening the edges frees the sash"),
+        ("clear the track of grit", "gritty in the runner", "a clean track lets it glide"),
+        ("try a different window", "swollen and truly stuck", "another window may open freely")]),
+    ("a fast-moving stream", "cross it", [
+        ("wade at a wide, calm spot", "wide and shallow", "wide water usually runs slower and shallower"),
+        ("cross on stepping stones", "dotted with rocks", "rocks give footing above the current"),
+        ("find a log or bridge", "deep and fast", "fast deep water is too risky to wade"),
+        ("cross where it splits into channels", "braided into small channels", "small channels are each easy")]),
+    ("a pile of rubble", "get past", [
+        ("climb over the stable parts", "settled and solid", "settled rubble holds my weight"),
+        ("clear a path through it", "loose and shifting", "loose rubble is safer moved than climbed"),
+        ("go around it", "piled to one side", "a route around avoids the hazard"),
+        ("test each step before trusting it", "uncertain and mixed", "testing footing prevents a fall")]),
+    ("a closed heavy gate", "get through", [
+        ("lift the latch and push", "just latched", "a latch is the simplest fix"),
+        ("look for another opening", "chained shut", "a chained gate needs a different way in"),
+        ("push slowly with your whole body", "heavy but unlocked", "weight, not force, swings a heavy gate"),
+        ("call out for someone to open it", "barred from the other side", "someone on the far side can free it")]),
+    ("a slippery slope", "get down safely", [
+        ("go down sideways in small steps", "steep and smooth", "sideways steps keep me from sliding"),
+        ("hold onto plants or rocks", "dotted with handholds", "grips slow a slippery descent"),
+        ("sit and slide carefully", "short and clear below", "a controlled slide is safe on a short drop"),
+        ("find a drier, rougher line down", "wet in places", "rough dry ground has far more grip")]),
+    ("a low doorway", "get through", [
+        ("duck your head", "just a bit low", "a quick duck clears a small overhang"),
+        ("crouch and step through", "quite low", "crouching gets me under a low frame"),
+        ("turn sideways as you crouch", "low and narrow", "turning fits me through a tight, low gap"),
+        ("crawl through", "very low", "crawling is the only way under a very low opening")]),
+    ("a flooded underpass", "get to the other side", [
+        ("wade through", "shallow, below the knee", "shallow water is safe to wade"),
+        ("find the higher path around", "deep and rising", "deep water means i take the high route"),
+        ("wait for the water to drain", "draining already", "a draining flood clears on its own"),
+        ("use the raised walkway if there is one", "one with a ledge along the side", "a ledge stays dry")]),
+    ("a tall fence", "get to the other side", [
+        ("climb over using the rails", "made of rails i can grip", "rails give hand and footholds"),
+        ("find the gate", "very long", "a long fence has a gate somewhere"),
+        ("look for a gap at the bottom", "loose along the ground", "a loose bottom edge lets me slip under"),
+        ("go around the end", "short", "around beats over when it's short")]),
+    ("a knotted shoelace", "get it undone", [
+        ("pull the loose loops open", "loosely knotted", "loose loops come apart with a tug"),
+        ("work the knot with your nails", "a small tight knot", "picking loosens a stubborn knot"),
+        ("loosen it from the top eyelets down", "cinched tight", "freeing slack from above loosens the knot"),
+        ("cut and re-lace it", "fused solid", "a hopeless knot is faster to replace")]),
+    ("a spilled load of groceries", "gather them up", [
+        ("pick up the rolling items first", "rolling away", "catching the movers stops them scattering"),
+        ("stack them back into the bag", "mostly in one spot", "if they're together, just re-bag them"),
+        ("use a nearby cart or box", "too many to carry", "a container beats many trips"),
+        ("check for anything broken first", "with something fragile", "handling breakage first avoids a mess")]),
+    ("a foggy path", "find your way", [
+        ("follow the edge of the trail", "a clear path underfoot", "the trail guides me even when i can't see far"),
+        ("move slowly and listen", "thick fog", "slowing down and listening keeps me oriented"),
+        ("wait for it to lift", "clearing already", "fog often lifts within the hour"),
+        ("use landmarks you can still see", "patchy with gaps", "near landmarks keep me on course")]),
+    ("a heavy sliding door", "open it", [
+        ("push it along its track", "on a smooth track", "sliding needs a push, not a lift"),
+        ("clear the track first", "gritty in the groove", "a clean groove lets it roll"),
+        ("lift slightly as you slide", "dropped off its rollers", "a small lift reseats it"),
+        ("get help for a wide one", "very large and heavy", "a big door is easier with two")]),
 ]
 REQ_OPEN = ["{o} is in the way and i need to {g}. what do i do?", "how do i get past {o}?",
             "there's {o} - how do i {g}?", "i need to {g} but {o} is blocking me. what should i do?",

@@ -26,9 +26,9 @@ import torch
 from gm.lm import CharLM, WordCoder
 
 MIN_FREQ = int(sys.argv[1]) if len(sys.argv) > 1 else 30
-WIKI_MB = sys.argv[2] if len(sys.argv) > 2 else "40"
+WIKI_MB = sys.argv[2] if len(sys.argv) > 2 else "25"
 # append weights MUST mirror t4_run.py so the vocab we test is the vocab the real run will use
-WEIGHTS = [("wiki", 1), ("tooluse", 3), ("reasoning", 2), ("rules", 2), ("dialogue2", 10), ("stories2", 10), ("solving", 4), ("reward_design", 20)]
+WEIGHTS = [("wiki", 1), ("tooluse", 3), ("reasoning", 2), ("rules", 2), ("dialogue2", 10), ("stories2", 20), ("solving", 6), ("reward_design", 16)]
 _TOK = re.compile(r"\n|[+\-]?[A-Za-z][A-Za-z_]*(?:\([a-z]+\))?|[0-9]+|[^\sA-Za-z0-9]")
 EOS = "■"
 dev = "cuda" if torch.cuda.is_available() else "cpu"
@@ -67,7 +67,7 @@ def _append(name, times):                                     # same as t4_run.p
 # from the base, THEN append the clean uniform reward_design. (Order matters — stripping before the
 # reward_design append is what makes the new set the sole, balanced source.)
 sources = {"v5": open("data/mixed/chat.txt").read()}
-for name, times in [("wiki", 1), ("tooluse", 3), ("reasoning", 2), ("rules", 2), ("dialogue2", 10), ("stories2", 10), ("solving", 4)]:
+for name, times in [("wiki", 1), ("tooluse", 3), ("reasoning", 2), ("rules", 2), ("dialogue2", 10), ("stories2", 20), ("solving", 6)]:
     sources[name] = _append(name, times)
 import re as _scrub_re
 _spec = _scrub_re.compile(r"reward:\s*[+\-]", _scrub_re.I)
@@ -76,7 +76,7 @@ _kept0 = [b for b in _blocks0 if not _spec.search(b)]
 with open("data/mixed/chat.txt", "w") as f:
     f.write("\n\n".join(_kept0) + "\n")
 stamp(f"stripped {len(_blocks0) - len(_kept0):,} old reward blocks from base")
-sources["reward_design"] = _append("reward_design", 20)
+sources["reward_design"] = _append("reward_design", 16)
 text = open("data/mixed/chat.txt").read()
 stamp(f"corpus assembled: {len(text)/1e6:.0f} MB")
 

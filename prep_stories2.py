@@ -14,14 +14,35 @@ fable flavor will leak (we de-SHOUT the openings and normalize quotes, but don't
 Sources: public-domain fable/short-tale collections on Project Gutenberg (training data, not
 pretrained weights — consistent with the from-scratch rule). Output: data/stories2/chat.txt
 """
+import json
 import os
 import random
 import re
 import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-# Gutenberg IDs of fable / short-tale collections (many small complete stories each)
+# seed IDs of fable / short-tale collections (many small complete stories each)
 SOURCE_IDS = [21, 11339, 19994, 28, 49010, 2591]   # Aesop x4, more fables, Grimm (short ones kept)
+
+
+def _discover(target=40):
+    """Auto-find more fable / folk-tale collections via the Gutendex API, so the corpus has more
+    UNIQUE stories (diversity is what teaches weaving; repetition just memorizes). Robust to failure."""
+    ids = []
+    for subj in ("fables", "folk tales", "fairy tales"):
+        for page in (1, 2):
+            try:
+                url = f"https://gutendex.com/books?languages=en&topic={subj.replace(' ','%20')}&page={page}"
+                j = json.loads(urllib.request.urlopen(
+                    urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"}), timeout=20).read())
+                for b in j.get("results", []):
+                    if b.get("id"):
+                        ids.append(b["id"])
+            except Exception:
+                break
+            if len(ids) >= target:
+                break
+    return ids[:target]
 REQ = ["tell me a story", "tell me a story", "can you tell me a story", "tell me a little story",
        "i'd love to hear a story", "tell me a bedtime story", "spin me a tale", "tell me a tale",
        "read me a story", "make up a story", "story time!", "tell me a short story"]
@@ -78,12 +99,14 @@ def _split_stories(txt):
 
 def main(seed=53):
     r = random.Random(seed)
+    ids = list(dict.fromkeys(SOURCE_IDS + _discover()))     # seed IDs + auto-discovered collections
     stories = []
-    for gid in SOURCE_IDS:
+    for gid in ids:
         txt = _fetch(gid)
         got = _split_stories(txt) if txt else []
-        stories += got
-        print(f"[stories2] source {gid}: {len(got)} stories", flush=True)
+        if got:
+            stories += got
+            print(f"[stories2] source {gid}: {len(got)} stories", flush=True)
     # dedupe by a prefix key (some collections overlap)
     seen, uniq = set(), []
     for s in stories:
