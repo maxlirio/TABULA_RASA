@@ -22,12 +22,25 @@ WARM = (len(sys.argv) <= 4 or sys.argv[4] != "nowarm")
 print("GPU:", torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU", flush=True)
 env = dict(os.environ, PYTHONPATH=os.getcwd(), PYTHONUNBUFFERED="1")
 
-corp = [c for c in glob.glob("/kaggle/input/**/chat.txt", recursive=True) if "tabula-corpus-v5" in c]
-assert corp, "attach the tabula-corpus-v5 dataset"
-warm = glob.glob("/kaggle/input/**/apollo.pt", recursive=True)
-assert warm, "attach the tabula-warmstart dataset"
-wiki = glob.glob("/kaggle/input/**/wiki.train.tokens", recursive=True)
-assert wiki, "attach the wikitext-103 dataset"
+# find the datasets under whichever root exists (Kaggle mounts /kaggle/input; Colab uses /content)
+DATA_ROOTS = ["/kaggle/input", "/content", os.getcwd()]
+
+
+def find(pattern, must_contain=None):
+    for root in DATA_ROOTS:
+        hits = [h for h in glob.glob(f"{root}/**/{pattern}", recursive=True)
+                if (must_contain is None or must_contain in h)]
+        if hits:
+            return hits
+    return []
+
+
+corp = find("chat.txt", "tabula-corpus-v5")
+assert corp, "tabula-corpus-v5 dataset not found (attach on Kaggle / download to /content on Colab)"
+warm = find("apollo.pt", "warmstart")            # 'warmstart' in path -> never picks our own output
+assert warm, "tabula-warmstart dataset not found"
+wiki = find("wiki.train.tokens")
+assert wiki, "wikitext-103 dataset not found"
 os.makedirs("data/mixed", exist_ok=True)
 shutil.copy(corp[0], "data/mixed/chat.txt")
 print("v5", round(os.path.getsize(corp[0]) / 1e6), "| warm", round(os.path.getsize(warm[0]) / 1e6),
@@ -80,7 +93,12 @@ print("final corpus MB:", round(os.path.getsize("data/mixed/chat.txt") / 1e6), f
 
 warm_arg = warm[0] if WARM else ""     # "" -> train_lm falls back to random init (from scratch)
 print("warm-start:", "ON " + warm[0] if WARM else "OFF (from scratch)", flush=True)
-subprocess.run([sys.executable, "-u", "train_lm.py", "mixed", "/kaggle/working/apollo.pt",
+# write the model to whichever working dir is writable (Kaggle: /kaggle/working; Colab: /content)
+out_dir = next((d for d in ("/kaggle/working", "/content") if os.path.isdir(d) and os.access(d, os.W_OK)),
+               os.getcwd())
+out_path = os.path.join(out_dir, "apollo.pt")
+print("output model ->", out_path, flush=True)
+subprocess.run([sys.executable, "-u", "train_lm.py", "mixed", out_path,
                 "Apollo", ITERS, "8", "768", "12", "256", "12", BATCH, warm_arg, "30"],
                env=env, check=True)
-print("TRAINING COMPLETE", flush=True)
+print("TRAINING COMPLETE ->", out_path, flush=True)
