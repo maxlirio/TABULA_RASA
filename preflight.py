@@ -25,7 +25,7 @@ import torch
 
 from gm.lm import CharLM, WordCoder
 
-MIN_FREQ = int(sys.argv[1]) if len(sys.argv) > 1 else 30
+MIN_FREQ = int(sys.argv[1]) if len(sys.argv) > 1 else 80
 WIKI_MB = sys.argv[2] if len(sys.argv) > 2 else "600"
 # append weights MUST mirror t4_run.py so the vocab we test is the vocab the real run will use
 WEIGHTS = [("wiki", 1), ("bigwiki", 1), ("bookcorpus", 1), ("tooluse", 3), ("reasoning", 2), ("rules", 2), ("dialogue2", 10), ("stories2", 20), ("solving", 6), ("reward_design", 16)]

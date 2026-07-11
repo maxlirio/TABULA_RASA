@@ -106,6 +106,6 @@ out_dir = next((d for d in ("/kaggle/working", "/content") if os.path.isdir(d) a
 out_path = os.path.join(out_dir, "apollo.pt")
 print("output model ->", out_path, flush=True)
 subprocess.run([sys.executable, "-u", "train_lm.py", "mixed", out_path,
-                "Apollo", ITERS, "8", N_EMBD, N_LAYER, "256", N_HEAD, BATCH, warm_arg, "30"],
+                "Apollo", ITERS, "8", N_EMBD, N_LAYER, "256", N_HEAD, BATCH, warm_arg, "80"],
                env=env, check=True)
 print("TRAINING COMPLETE ->", out_path, flush=True)
