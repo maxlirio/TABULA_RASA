@@ -13,10 +13,13 @@ import sys
 
 import torch
 
-WIKI_MB = sys.argv[1] if len(sys.argv) > 1 else "25"   # less wiki: warm-start already gives fluency
-BATCH = sys.argv[2] if len(sys.argv) > 2 else "16"
-ITERS = sys.argv[3] if len(sys.argv) > 3 else "48000"  # last run used only 2.6h/12h -> go longer
-# 4th arg "nowarm" trains from scratch (fallback if warm-start's old-format prior still biases specs)
+WIKI_MB = sys.argv[1] if len(sys.argv) > 1 else "600"  # ALL of wikitext-103 (~530MB) -> max unique data
+BATCH = sys.argv[2] if len(sys.argv) > 2 else "8"      # smaller batch: the 280M model needs the memory
+ITERS = sys.argv[3] if len(sys.argv) > 3 else "80000"  # bigger model + more data -> train longer
+# BIGGER MODEL: 1024-wide, 16-layer (~280M params). This does NOT match the 768/12 warmstart, so
+# train_lm falls back to random init (from scratch) for run #1 - expected; it BUILDS the new base.
+# Run #2+ warm-start from run #1's output (same arch) to accumulate training across runs.
+N_EMBD, N_LAYER, N_HEAD = "1024", "16", "16"
 WARM = (len(sys.argv) <= 4 or sys.argv[4] != "nowarm")
 
 print("GPU:", torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU", flush=True)
@@ -99,6 +102,6 @@ out_dir = next((d for d in ("/kaggle/working", "/content") if os.path.isdir(d) a
 out_path = os.path.join(out_dir, "apollo.pt")
 print("output model ->", out_path, flush=True)
 subprocess.run([sys.executable, "-u", "train_lm.py", "mixed", out_path,
-                "Apollo", ITERS, "8", "768", "12", "256", "12", BATCH, warm_arg, "30"],
+                "Apollo", ITERS, "8", N_EMBD, N_LAYER, "256", N_HEAD, BATCH, warm_arg, "30"],
                env=env, check=True)
 print("TRAINING COMPLETE ->", out_path, flush=True)
