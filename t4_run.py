@@ -51,8 +51,10 @@ print("v5", round(os.path.getsize(corp[0]) / 1e6), "| warm", round(os.path.getsi
 
 for cmd in (["prep_wiki.py", WIKI_MB], ["prep_tooluse.py"], ["prep_reasoning.py"],
             ["prep_rules.py"], ["prep_reward_design.py"], ["prep_dialogue2.py"],
-            ["prep_stories2.py"], ["prep_solving.py"]):   # generative: diverse fables + problem-solving
-    subprocess.run([sys.executable] + cmd, check=True, env=env)
+            ["prep_stories2.py"], ["prep_solving.py"],    # generative: diverse fables + problem-solving
+            ["prep_bigwiki.py", "400"], ["prep_bookcorpus.py", "400"]):  # BIG corpora for the 280M model
+    subprocess.run([sys.executable] + cmd, check=False, env=env)   # check=False: a missing big corpus
+    #                                                                shouldn't abort the whole run
 
 
 def append(path, times):
@@ -82,6 +84,8 @@ def strip_all_reward_blocks():
 
 
 append("data/wiki/chat.txt", 1)
+append("data/bigwiki/chat.txt", 1)           # full Wikipedia (world knowledge) for the bigger model
+append("data/bookcorpus/chat.txt", 1)        # narrative prose (storytelling/reasoning register)
 append("data/tooluse/chat.txt", 3)
 append("data/reasoning/chat.txt", 2)
 append("data/rules/chat.txt", 2)
