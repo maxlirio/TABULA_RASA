@@ -147,9 +147,18 @@ class WordCoder:
 
     @classmethod
     def from_text(cls, text, min_freq=1):
-        counts = _Counter(_TOK.findall(text))
-        vocab = ["<unk>", "\n"] + sorted(t for t, n in counts.items()
-                                         if n >= min_freq and t != "\n")
+        # count in CHUNKS: findall over a multi-GB corpus builds a ~400M-string list (~tens of GB)
+        # and OOMs. Chunk on newlines so only a slice is materialized at a time (findall stays C-fast).
+        counts = _Counter()
+        n, i, step = len(text), 0, 50_000_000
+        while i < n:
+            j = text.find("\n", min(i + step, n)) if i + step < n else n
+            if j == -1:
+                j = n
+            counts.update(_TOK.findall(text[i:j]))
+            i = j
+        vocab = ["<unk>", "\n"] + sorted(t for t, c in counts.items()
+                                         if c >= min_freq and t != "\n")
         return cls(vocab)
 
     @property
@@ -158,6 +167,21 @@ class WordCoder:
 
     def encode(self, s):
         return [self.stoi.get(t, self.unk) for t in _TOK.findall(s)]
+
+    def encode_array(self, text):
+        """Memory-efficient encode of a huge corpus -> numpy int32 array, built in chunks (a Python
+        list of 400M ints is ~3GB+; encoding chunk-by-chunk into numpy keeps peak memory low)."""
+        import numpy as np
+        parts, n, i, step = [], len(text), 0, 50_000_000
+        while i < n:
+            j = text.find("\n", min(i + step, n)) if i + step < n else n
+            if j == -1:
+                j = n
+            g = self.stoi.get
+            parts.append(np.fromiter((g(t, self.unk) for t in _TOK.findall(text[i:j])),
+                                     dtype=np.int32))
+            i = j
+        return np.concatenate(parts) if parts else np.zeros(0, dtype=np.int32)
 
     def decode(self, ids):
         return _detok([self.itos.get(int(i), "") for i in ids])

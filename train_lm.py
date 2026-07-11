@@ -88,7 +88,7 @@ def main(subdir="modern", ckpt="apollo.pt", name="Apollo", iters=2500, threads=N
               else "mps" if torch.backends.mps.is_available() else "cpu")
     text = load_corpus(subdir)
     coder = WordCoder.from_text(text, min_freq=min_freq)  # prune rare words (big corpus -> ~62k vocab)
-    data = torch.tensor(coder.encode(text), dtype=torch.long)
+    data = torch.from_numpy(coder.encode_array(text)).long()  # chunked encode: avoids OOM on GB corpora
     n = int(0.95 * len(data))
     train, val = data[:n], data[n:]
     print(f"[{name}] corpus: {len(data):,} tokens, vocab {len(coder.tokens):,}, device {device}")
