@@ -23,6 +23,7 @@ from collections import Counter
 
 import torch
 
+from corpus_scrub import markup_count, scrub_markup
 from gm.lm import CharLM, WordCoder
 
 MIN_FREQ = int(sys.argv[1]) if len(sys.argv) > 1 else 0   # 0 = reuse run #1's vocab, as t4_run does
@@ -71,6 +72,13 @@ def _append(name, times):                                     # same as t4_run.p
 # EXACT mirror of t4_run.py assembly order: append non-reward sources, strip ALL old reward blocks
 # from the base, THEN append the clean uniform reward_design. (Order matters — stripping before the
 # reward_design append is what makes the new set the sole, balanced source.)
+# mirror t4_run: scrub the v5 BASE before any skill data is appended (see corpus_scrub)
+_base = open("data/mixed/chat.txt").read()          # read BEFORE opening for write ("w" truncates)
+_pre_scrub, _pre_total = markup_count(_base)
+with open("data/mixed/chat.txt", "w") as f:
+    f.write(scrub_markup(_base))
+stamp(f"scrubbed Gutenberg markup from v5 base: {_pre_scrub:,}/{_pre_total:,} blocks carried it")
+
 sources = {"v5": open("data/mixed/chat.txt").read()}
 for name, times in WEIGHTS:
     if name == "reward_design":       # appended below, after the strip
@@ -186,6 +194,16 @@ okB6 = len(_s2_blocks) >= 500 and _idx / max(len(_s2_blocks), 1) < 0.01
 report.append(("B6. story source", okB6,
                f"{len(_s2_blocks):,} fable blocks fetched, {_idx} index-like "
                f"(want >=500 blocks and ~0 index junk)"))
+
+# B7. typesetting markup — the SAME disease as the memorized fable index, and the reason B6 exists.
+# [Illustration] and _italic_ markers ride along inside good prose (14% of v5's blocks, 10%/22% of
+# the raw fable scrape). The model cannot tell "junk that reliably appears in books" from "language",
+# so it learns to emit it. Assert the assembled corpus is clean AFTER the scrub, not before.
+_mk_bad, _mk_tot = markup_count(text)
+okB7 = _mk_bad / max(_mk_tot, 1) < 0.005
+report.append(("B7. typesetting markup", okB7,
+               f"{_mk_bad:,}/{_mk_tot:,} blocks ({_mk_bad / max(_mk_tot, 1):.2%}) still carry "
+               f"[bracket] or _underscore_ markup after the scrub (want <0.5%)"))
 
 
 # ---------------------------------------------------------------- B2. format-conflict scan

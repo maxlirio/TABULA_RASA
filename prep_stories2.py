@@ -62,8 +62,17 @@ def _fetch(gid):
 def _clean(s):
     s = (s.replace("\r", "").replace("“", '"').replace("”", '"').replace("‘", "'")
          .replace("’", "'").replace("—", "-").replace("–", "-"))
+    # Gutenberg TYPESETTING markup, stripped before anything else. It is not prose, but it sits
+    # inside otherwise-good fables ([Illustration] in 10% of them, _italic_ morals in 22%), and at
+    # 20x exposure the model learns to EMIT it — the same disease as the memorized fable index,
+    # just a different organ. Drop the bracket tags outright; keep the italicized moral, lose its
+    # underscores (the moral is the best part of a fable, the markers are noise).
+    s = re.sub(r"\[[^\]]*\]", " ", s)          # [Illustration], [Illustration: a fox], [Footnote 3]
+    s = re.sub(r"_([^_\n]+)_", r"\1", s)       # _It is unwise..._ -> It is unwise...
+    s = s.replace("_", " ")                    # any unpaired marker left behind
     s = re.sub(r"\b[A-Z][A-Z']{1,}\b", lambda m: m.group(0).lower(), s)   # de-SHOUT the openings
     s = re.sub(r"\s+", " ", s).strip()
+    s = re.sub(r"\s+([.,;:!?])", r"\1", s)     # the strips can orphan punctuation ("moral . " -> "moral.")
     # capitalize sentence starts (the de-SHOUT lowercased them)
     return re.sub(r"(^|[.!?]\s+)([a-z])", lambda m: m.group(1) + m.group(2).upper(), s)
 

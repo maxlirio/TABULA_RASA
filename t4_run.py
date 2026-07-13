@@ -22,6 +22,8 @@ import sys
 
 import torch
 
+from corpus_scrub import markup_count, scrub_markup
+
 WIKI_MB = sys.argv[1] if len(sys.argv) > 1 else "120"  # a REPLAY slice, not the whole encyclopedia:
 #                                                        run #1 already put Wikipedia in the weights
 BATCH = sys.argv[2] if len(sys.argv) > 2 else "8"      # the 280M model needs the memory
@@ -80,6 +82,21 @@ def append(path, times):
             f.write("\n\n" + data)
 
 
+def scrub_base_markup():
+    """Runs on the v5 BASE only (before any skill data is appended). v5 is 35% of exposure and 14% of
+    its blocks carry _italic_ / [Illustration] Gutenberg typesetting. Run #1 memorized junk that
+    reliably co-occurred with prose -- a fable index -- and this is the same junk in the biggest
+    source we feed. Scrubbing at assembly costs seconds and needs no re-upload of the v5 dataset.
+    Deliberately NOT applied to the skill sources: they contain no underscores or brackets today, and
+    if one ever adopts them as SYNTAX (a tool call, a reward spec) this must not silently mangle it."""
+    text = open("data/mixed/chat.txt").read()
+    before, total = markup_count(text)
+    open("data/mixed/chat.txt", "w").write(scrub_markup(text))
+    after, _ = markup_count(open("data/mixed/chat.txt").read())
+    print(f"scrubbed Gutenberg markup from v5 base: {before:,}/{total:,} blocks carried it "
+          f"-> {after:,} remain", flush=True)
+
+
 def strip_all_reward_blocks():
     """Remove EVERY old reward-design block from the base corpus so the ONLY reward data the model
     sees is the clean, uniform new set appended right after. The v5 base was built before the
@@ -102,6 +119,7 @@ def strip_all_reward_blocks():
 # REPLAY stream (~50%) that keeps run #1's fluency; everything else is a skill being re-taught.
 # Targets (preflight B/B4 verify them on the real assembled corpus, so they can't silently drift):
 #   reward_design ~21%   tooluse ~15%   stories (dialogue2 + stories2) ~8%   solving ~3%
+scrub_base_markup()                          # v5 base only — must precede the skill appends
 append("data/wiki/chat.txt", 1)
 append("data/tooluse/chat.txt", 12)          # 2% in run #1 -> the model stopped calling its tools
 append("data/reasoning/chat.txt", 6)
