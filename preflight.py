@@ -10,8 +10,16 @@ Three checks, no big model, tiny text output (no flaky downloads):
   C. OVERFIT PROXY   — can a SMALL model learn to emit the target spec format? if it can't even
                        overfit, no amount of scale will. (the "memorization test", as a gate)
 
-Run on Kaggle with tabula-corpus-v5 + wikitext-103 attached (P100 is plenty):
-    python preflight.py            # full corpus, min_freq 30, wiki 250MB (matches t4_run.py)
+Runs anywhere the inputs can be found — Kaggle (/kaggle/input), Colab (/content), or a laptop (the
+repo's own data/ dir), on CUDA, Apple MPS, or CPU:
+    python preflight.py            # min_freq 0 (reuse the warm vocab), wiki 120MB — matches t4_run.py
+
+NOT on a Kaggle P100. Kaggle's PyTorch now ships sm_70+ kernels only, so a P100 (sm_60) cannot
+execute ANY kernel -- "no kernel image is available for execution on the device". The API cannot
+request a GPU type (enable_gpu only, and its default is a P100), so an API-pushed kernel is a P100
+and will die. Select T4 in the Kaggle UI, or just run this locally. _pick_device below PROBES the
+device rather than trusting is_available(), so this fails in seconds with a clear message instead of
+three minutes in with a CUDA stack trace.
 """
 import glob
 import os
@@ -36,7 +44,6 @@ WEIGHTS = [("wiki", 1), ("tooluse", 12), ("reasoning", 6), ("rules", 3), ("dialo
 _TOK = re.compile(r"\n|[+\-]?[A-Za-z][A-Za-z_]*(?:\([a-z]+\))?|[0-9]+|[^\sA-Za-z0-9]")
 _re_attr = re.compile(r"\([A-Z][a-z]+\)")     # "(French)" source tags -> a fable index, not a story
 EOS = "■"
-dev = "cuda" if torch.cuda.is_available() else "cpu"
 t0 = time.time()
 
 
@@ -44,16 +51,58 @@ def stamp(msg):
     print(f"[{time.time() - t0:5.0f}s] {msg}", flush=True)
 
 
+def _pick_device():
+    """PROBE the accelerator, don't trust is_available(). A Kaggle P100 reports cuda available and
+    then fails on the first real kernel launch (sm_60 dropped from their PyTorch build) -- three
+    minutes of corpus assembly wasted before a cryptic CUDA trace. A tiny matmul settles it now."""
+    for name in ("cuda", "mps"):
+        try:
+            if not getattr(torch, name).is_available():
+                continue
+        except Exception:
+            continue
+        try:
+            (torch.zeros(8, 8, device=name) @ torch.zeros(8, 8, device=name)).sum().item()
+            return name
+        except Exception as e:
+            print(f"[preflight] {name} is present but CANNOT execute kernels ({type(e).__name__}: "
+                  f"{str(e).splitlines()[0]}) — falling back", flush=True)
+    return "cpu"
+
+
+dev = _pick_device()
+
+
 # ---------------------------------------------------------------- 0. assemble the real corpus
 env = dict(os.environ, PYTHONPATH=os.getcwd(), PYTHONUNBUFFERED="1")
-corp = [c for c in glob.glob("/kaggle/input/**/chat.txt", recursive=True) if "tabula-corpus-v5" in c]
-assert corp, "attach the tabula-corpus-v5 dataset"
-wiki = glob.glob("/kaggle/input/**/wiki.train.tokens", recursive=True)
-assert wiki, "attach the wikitext-103 dataset"
+# Same root auto-detection as t4_run.py: Kaggle mounts /kaggle/input, Colab uses /content, and a
+# laptop just has the repo. WIKI_DIR lets a local run point at a downloaded wikitext-103.
+DATA_ROOTS = ["/kaggle/input", "/content", os.environ.get("WIKI_DIR", ""), os.getcwd()]
+
+
+def find(pattern, must_contain=None):
+    for root in DATA_ROOTS:
+        if not root or not os.path.isdir(root):
+            continue
+        hits = [h for h in glob.glob(f"{root}/**/{pattern}", recursive=True)
+                if must_contain is None or must_contain in h]
+        if hits:
+            return hits
+    return []
+
+
+# the v5 BASE corpus: the Kaggle dataset, or the repo's own copy when running locally
+corp = find("chat.txt", "tabula-corpus-v5") or find("chat.txt", "mixed_v5")
+assert corp, "tabula-corpus-v5 not found (attach the dataset, or keep data/mixed_v5/chat.txt)"
+wiki = find("wiki.train.tokens")
+assert wiki, "wikitext-103 not found (attach the dataset, or set WIKI_DIR=/path/to/wikitext)"
+warm_ck = find("apollo.pt", "warmstart") or find("apollo_280m.pt")   # supplies the vocab at min_freq 0
 os.makedirs("data/mixed", exist_ok=True)
 import shutil
 shutil.copy(corp[0], "data/mixed/chat.txt")
-for cmd in (["prep_wiki.py", WIKI_MB], ["prep_tooluse.py"], ["prep_reasoning.py"],
+stamp(f"inputs: v5 {corp[0]} | wiki {wiki[0]} | warm {warm_ck[0] if warm_ck else 'NONE'} | dev {dev}")
+# pass the wiki path explicitly — prep_wiki only globs /kaggle/input on its own
+for cmd in (["prep_wiki.py", WIKI_MB, wiki[0]], ["prep_tooluse.py"], ["prep_reasoning.py"],
             ["prep_rules.py"], ["prep_reward_design.py"], ["prep_dialogue2.py"],
             ["prep_stories2.py"], ["prep_solving.py"]):   # no bigwiki/bookcorpus: see t4_run.py
     subprocess.run([sys.executable] + cmd, check=True, env=env)
@@ -97,9 +146,8 @@ stamp(f"corpus assembled: {len(text)/1e6:.0f} MB")
 
 # MIN_FREQ 0 = reuse the warm checkpoint's vocabulary, exactly as train_lm.py does for a
 # continuation run. Testing a freshly-built vocab here would be testing the wrong tokenizer.
-warm_ck = [w for w in glob.glob("/kaggle/input/**/apollo.pt", recursive=True) if "warmstart" in w]
 if MIN_FREQ == 0:
-    assert warm_ck, "min_freq 0 needs the warmstart checkpoint attached (it supplies the vocab)"
+    assert warm_ck, "min_freq 0 needs the warm checkpoint (it supplies the vocab)"
     coder = WordCoder(torch.load(warm_ck[0], map_location="cpu")["tokens"])
     stamp(f"tokenizer: REUSING warm checkpoint vocab, {len(coder.tokens):,} tokens")
 else:
