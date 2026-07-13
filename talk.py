@@ -23,10 +23,14 @@ HELLO = ("Hi - I'm Apollo, a tiny from-scratch brain. Just talk to me, give me a
 
 
 def main():
+    import sys
+
     from gm.lm import load
-    apollo = os.path.join(HERE, "apollo.pt")
+    # optional path, so you can talk to a specific brain without shuffling 1GB files around:
+    #     python3 talk.py apollo_280m.pt
+    apollo = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "apollo.pt")
     if not os.path.exists(apollo):
-        print("No trained brain found. Train one first:  python3 train_lm.py mixed apollo.pt")
+        print(f"No brain at {apollo}. Train one:  python3 train_lm.py mixed apollo.pt")
         return
     model, coder = load(apollo)
     chat = Chat({"apollo": (model, coder)}, "apollo", MEM)
