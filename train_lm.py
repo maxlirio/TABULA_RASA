@@ -87,7 +87,15 @@ def main(subdir="modern", ckpt="apollo.pt", name="Apollo", iters=2500, threads=N
     device = ("cuda" if torch.cuda.is_available()
               else "mps" if torch.backends.mps.is_available() else "cpu")
     text = load_corpus(subdir)
-    coder = WordCoder.from_text(text, min_freq=min_freq)  # prune rare words (big corpus -> ~62k vocab)
+    if min_freq == 0 and warm and os.path.exists(warm):
+        # CONTINUATION run: reuse the warm checkpoint's exact vocabulary instead of rebuilding it
+        # from this corpus. A skills-focused run #2 corpus no longer contains full Wikipedia, so
+        # rebuilding would prune the rare words the base model already learned - and every pruned
+        # row is learning thrown away. Identical tokens => 100% of the embedding rows transplant.
+        coder = WordCoder(torch.load(warm, map_location="cpu")["tokens"])
+        print(f"[{name}] vocab: reusing the warm checkpoint's {len(coder.tokens):,} tokens")
+    else:
+        coder = WordCoder.from_text(text, min_freq=min_freq)  # prune rare words (big corpus -> ~62k)
     data = torch.from_numpy(coder.encode_array(text)).long()  # chunked encode: avoids OOM on GB corpora
     n = int(0.95 * len(data))
     train, val = data[:n], data[n:]
@@ -222,6 +230,7 @@ def main(subdir="modern", ckpt="apollo.pt", name="Apollo", iters=2500, threads=N
 
 if __name__ == "__main__":
     # args: subdir ckpt name iters [threads] [n_embd] [n_layer] [block] [n_head] [batch] [warm.pt]
+    #       [min_freq]  (min_freq 0 + a warm checkpoint = reuse that checkpoint's vocabulary)
     a = sys.argv[1:]
     main(a[0] if len(a) > 0 else "modern",
          a[1] if len(a) > 1 else "apollo.pt",

@@ -25,11 +25,15 @@ import torch
 
 from gm.lm import CharLM, WordCoder
 
-MIN_FREQ = int(sys.argv[1]) if len(sys.argv) > 1 else 80
-WIKI_MB = sys.argv[2] if len(sys.argv) > 2 else "600"
-# append weights MUST mirror t4_run.py so the vocab we test is the vocab the real run will use
-WEIGHTS = [("wiki", 1), ("bigwiki", 1), ("bookcorpus", 1), ("tooluse", 3), ("reasoning", 2), ("rules", 2), ("dialogue2", 10), ("stories2", 20), ("solving", 6), ("reward_design", 16)]
+MIN_FREQ = int(sys.argv[1]) if len(sys.argv) > 1 else 0   # 0 = reuse run #1's vocab, as t4_run does
+WIKI_MB = sys.argv[2] if len(sys.argv) > 2 else "120"
+# Append weights MUST mirror t4_run.py or this gate is testing a corpus nobody will train on. ONE
+# list, used for both the assembly and the exposure maths (they were two lists, which is how they
+# drift apart). reward_design stays last: it is appended AFTER the old-reward strip.
+WEIGHTS = [("wiki", 1), ("tooluse", 12), ("reasoning", 6), ("rules", 3), ("dialogue2", 12),
+           ("stories2", 20), ("solving", 8), ("reward_design", 20)]
 _TOK = re.compile(r"\n|[+\-]?[A-Za-z][A-Za-z_]*(?:\([a-z]+\))?|[0-9]+|[^\sA-Za-z0-9]")
+_re_attr = re.compile(r"\([A-Z][a-z]+\)")     # "(French)" source tags -> a fable index, not a story
 EOS = "■"
 dev = "cuda" if torch.cuda.is_available() else "cpu"
 t0 = time.time()
@@ -49,7 +53,8 @@ os.makedirs("data/mixed", exist_ok=True)
 import shutil
 shutil.copy(corp[0], "data/mixed/chat.txt")
 for cmd in (["prep_wiki.py", WIKI_MB], ["prep_tooluse.py"], ["prep_reasoning.py"],
-            ["prep_rules.py"], ["prep_reward_design.py"], ["prep_dialogue2.py"], ["prep_stories2.py"], ["prep_solving.py"], ["prep_bigwiki.py","400"], ["prep_bookcorpus.py","400"]):
+            ["prep_rules.py"], ["prep_reward_design.py"], ["prep_dialogue2.py"],
+            ["prep_stories2.py"], ["prep_solving.py"]):   # no bigwiki/bookcorpus: see t4_run.py
     subprocess.run([sys.executable] + cmd, check=True, env=env)
 stamp("prep scripts done")
 
@@ -67,7 +72,9 @@ def _append(name, times):                                     # same as t4_run.p
 # from the base, THEN append the clean uniform reward_design. (Order matters — stripping before the
 # reward_design append is what makes the new set the sole, balanced source.)
 sources = {"v5": open("data/mixed/chat.txt").read()}
-for name, times in [("wiki", 1), ("bigwiki", 1), ("bookcorpus", 1), ("tooluse", 3), ("reasoning", 2), ("rules", 2), ("dialogue2", 10), ("stories2", 20), ("solving", 6)]:
+for name, times in WEIGHTS:
+    if name == "reward_design":       # appended below, after the strip
+        continue
     sources[name] = _append(name, times)
 import re as _scrub_re
 _spec = _scrub_re.compile(r"reward:\s*[+\-]", _scrub_re.I)
@@ -76,13 +83,21 @@ _kept0 = [b for b in _blocks0 if not _spec.search(b)]
 with open("data/mixed/chat.txt", "w") as f:
     f.write("\n\n".join(_kept0) + "\n")
 stamp(f"stripped {len(_blocks0) - len(_kept0):,} old reward blocks from base")
-sources["reward_design"] = _append("reward_design", 16)
+sources["reward_design"] = _append("reward_design", dict(WEIGHTS)["reward_design"])
 text = open("data/mixed/chat.txt").read()
 stamp(f"corpus assembled: {len(text)/1e6:.0f} MB")
 
-coder = WordCoder.from_text(text, min_freq=MIN_FREQ)
+# MIN_FREQ 0 = reuse the warm checkpoint's vocabulary, exactly as train_lm.py does for a
+# continuation run. Testing a freshly-built vocab here would be testing the wrong tokenizer.
+warm_ck = [w for w in glob.glob("/kaggle/input/**/apollo.pt", recursive=True) if "warmstart" in w]
+if MIN_FREQ == 0:
+    assert warm_ck, "min_freq 0 needs the warmstart checkpoint attached (it supplies the vocab)"
+    coder = WordCoder(torch.load(warm_ck[0], map_location="cpu")["tokens"])
+    stamp(f"tokenizer: REUSING warm checkpoint vocab, {len(coder.tokens):,} tokens")
+else:
+    coder = WordCoder.from_text(text, min_freq=MIN_FREQ)
+    stamp(f"tokenizer: vocab {len(coder.tokens):,} at min_freq {MIN_FREQ}")
 vocab = coder.stoi
-stamp(f"tokenizer: vocab {len(coder.tokens):,} at min_freq {MIN_FREQ}")
 
 report = []   # (label, ok, detail)
 
@@ -138,13 +153,39 @@ report.append(("B. distribution", okB,
 # drowned (both a warm-started and a from-scratch full run failed); the proxy learned it only near
 # 100%. Fail if reward-design is too small a fraction of training exposure to actually be learned.
 rd_exp = exposure.get("reward_design", 0)
-okB4 = rd_exp >= 0.05          # 8% for the bigger-model FLUENCY run #1 (general data dominates by
-#                               design); reward is re-emphasized in the warm-started run #2. Still
-#                               well clear of the 4% that demonstrably drowned it.
+okB4 = rd_exp >= 0.15          # back to the PROVEN floor. It was relaxed to 8% for the run #1
+#                               fluency phase, which is precisely when reward design degraded again.
 report.append(("B4. reward-design exposure", okB4,
-               f"reward_design is {rd_exp:.0%} of training exposure (want >=8% this phase; 4% "
-               f"demonstrably drowned it — the bigger run #1 prioritizes fluency, reward comes back "
-               f"in run #2)"))
+               f"reward_design is {rd_exp:.0%} of training exposure (want >=15%: 22% produced clean "
+               f"specs on every goal, 8% degraded them, 4% drowned them completely)"))
+
+# B5. the OTHER skills need a learnable share too — run #1 proved the point in the negative: tooluse
+# fell to 2% and the model simply stopped calling its tools (invented a time instead of asking the
+# clock), while stories at 2% collapsed into reciting fable-index lines. Same disease as reward
+# design, different organ. So gate every skill we are paying to re-teach, not just the reward one.
+SKILL_FLOORS = {"tooluse": 0.10, "solving": 0.02}
+story_exp = exposure.get("dialogue2", 0) + exposure.get("stories2", 0)   # two sources, one skill
+skill_bad = [f"{n} {exposure.get(n, 0):.0%} (want >={f:.0%})"
+             for n, f in SKILL_FLOORS.items() if exposure.get(n, 0) < f]
+if story_exp < 0.05:
+    skill_bad.append(f"stories {story_exp:.0%} (want >=5%, dialogue2 + stories2)")
+okB5 = not skill_bad
+report.append(("B5. skill exposure floors", okB5,
+               f"tooluse {exposure.get('tooluse', 0):.0%}, stories {story_exp:.0%}, "
+               f"solving {exposure.get('solving', 0):.0%}"
+               + (f"; TOO LOW: {', '.join(skill_bad)}" if skill_bad else " — all learnable")))
+
+# B6. story-source sanity: the fable scrape is the one source that can silently come back EMPTY (a
+# flaky gutendex call) or CONTAMINATED (tables of contents parsed as 'stories' — run #1 memorized
+# "Lion and the Bull, The. La Fontaine (French)" and recited it when asked for a story).
+_s2 = "data/stories2/chat.txt"
+_s2_blocks = [b for b in open(_s2).read().split("\n\n") if b.strip()] if os.path.exists(_s2) else []
+_idx = sum(1 for b in _s2_blocks if b.count(", The.") + b.count(", A.") >= 2 or b.count("(") >= 3
+           and _re_attr.search(b)) if _s2_blocks else 0
+okB6 = len(_s2_blocks) >= 500 and _idx / max(len(_s2_blocks), 1) < 0.01
+report.append(("B6. story source", okB6,
+               f"{len(_s2_blocks):,} fable blocks fetched, {_idx} index-like "
+               f"(want >=500 blocks and ~0 index junk)"))
 
 
 # ---------------------------------------------------------------- B2. format-conflict scan

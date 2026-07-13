@@ -1,9 +1,18 @@
 #!/usr/bin/env python3
-"""One-shot Kaggle/T4 runner: finds the attached datasets, builds the corpus (v5 + Wikipedia +
-tools + extra reward-design), and continues training the 157M model. Run from the repo root in a
-notebook that has tabula-corpus-v5, tabula-warmstart, and wikitext-103 attached:
-    !cd TABULA_RASA && python t4_run.py            # defaults: 250MB wiki, batch 16
-    !cd TABULA_RASA && python t4_run.py 150 8       # if out-of-memory: less wiki, smaller batch
+"""One-shot Kaggle/T4 runner. Run from the repo root in a notebook with tabula-corpus-v5,
+tabula-warmstart-280m, and wikitext-103 attached:
+    !cd TABULA_RASA && python t4_run.py            # defaults below
+    !cd TABULA_RASA && python t4_run.py 80 4       # if out-of-memory: less wiki, smaller batch
+
+RUN #2 - SKILLS. Run #1 built the 280M base from scratch on 1.7GB (full Wikipedia + BookCorpus) and
+bought real fluency: natural chat, genuine multi-option problem-solving. But at that scale the
+SKILLS drowned - tooluse was 2% of exposure and the model stopped calling its tools (asked the date
+it invented a time; told "a wug is a kind of bird" it never fired a store CALL), while stories were
+2% AND contaminated with fable-index junk, so "tell me a story" recited titles.
+
+So this run does NOT rebuild the base. It warm-starts run #1's weights (same 1024/16 arch, so every
+tensor carries over) and re-feeds the skills at exposures that can actually be learned, keeping v5 +
+a wiki slice as a REPLAY stream so the fluency we just paid 9.5 hours for isn't forgotten.
 """
 import glob
 import os
@@ -13,13 +22,15 @@ import sys
 
 import torch
 
-WIKI_MB = sys.argv[1] if len(sys.argv) > 1 else "600"  # ALL of wikitext-103 (~530MB) -> max unique data
-BATCH = sys.argv[2] if len(sys.argv) > 2 else "8"      # smaller batch: the 280M model needs the memory
-ITERS = sys.argv[3] if len(sys.argv) > 3 else "80000"  # bigger model + more data -> train longer
-# BIGGER MODEL: 1024-wide, 16-layer (~280M params). This does NOT match the 768/12 warmstart, so
-# train_lm falls back to random init (from scratch) for run #1 - expected; it BUILDS the new base.
-# Run #2+ warm-start from run #1's output (same arch) to accumulate training across runs.
-N_EMBD, N_LAYER, N_HEAD = "1024", "16", "16"
+WIKI_MB = sys.argv[1] if len(sys.argv) > 1 else "120"  # a REPLAY slice, not the whole encyclopedia:
+#                                                        run #1 already put Wikipedia in the weights
+BATCH = sys.argv[2] if len(sys.argv) > 2 else "8"      # the 280M model needs the memory
+ITERS = sys.argv[3] if len(sys.argv) > 3 else "40000"  # continuation, not base-building (~5h on T4)
+# SAME 1024/16 architecture as run #1, so the warm-start matches tensor-for-tensor and this is a
+# true continuation. MIN_FREQ 0 = reuse run #1's vocabulary verbatim (see train_lm): rebuilding it
+# from this smaller corpus would prune the rare Wikipedia words the base model learned, throwing
+# away trained embedding rows for words that simply aren't frequent in a skills-heavy mix.
+N_EMBD, N_LAYER, N_HEAD, MIN_FREQ = "1024", "16", "16", "0"
 WARM = (len(sys.argv) <= 4 or sys.argv[4] != "nowarm")
 
 print("GPU:", torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU", flush=True)
@@ -40,8 +51,9 @@ def find(pattern, must_contain=None):
 
 corp = find("chat.txt", "tabula-corpus-v5")
 assert corp, "tabula-corpus-v5 dataset not found (attach on Kaggle / download to /content on Colab)"
-warm = find("apollo.pt", "warmstart")            # 'warmstart' in path -> never picks our own output
-assert warm, "tabula-warmstart dataset not found"
+warm = find("apollo.pt", "warmstart-280m")       # run #1's weights; 'warmstart' in the path means
+#                                                  we can never accidentally pick up our own output
+assert warm, "tabula-warmstart-280m dataset not found (upload run #1's apollo_280m.pt as apollo.pt)"
 wiki = find("wiki.train.tokens")
 assert wiki, "wikitext-103 dataset not found"
 os.makedirs("data/mixed", exist_ok=True)
@@ -49,11 +61,13 @@ shutil.copy(corp[0], "data/mixed/chat.txt")
 print("v5", round(os.path.getsize(corp[0]) / 1e6), "| warm", round(os.path.getsize(warm[0]) / 1e6),
       "| wiki", round(os.path.getsize(wiki[0]) / 1e6), "MB", flush=True)
 
+# NOTE: prep_bigwiki / prep_bookcorpus are deliberately NOT run. Those are the base-building corpora
+# from run #1; they are already in the warm-started weights, and re-feeding 600MB of them would bury
+# the skills all over again (that is exactly what went wrong).
 for cmd in (["prep_wiki.py", WIKI_MB], ["prep_tooluse.py"], ["prep_reasoning.py"],
             ["prep_rules.py"], ["prep_reward_design.py"], ["prep_dialogue2.py"],
-            ["prep_stories2.py"], ["prep_solving.py"],    # generative: diverse fables + problem-solving
-            ["prep_bigwiki.py", "400"], ["prep_bookcorpus.py", "400"]):  # BIG corpora for the 280M model
-    subprocess.run([sys.executable] + cmd, check=False, env=env)   # check=False: a missing big corpus
+            ["prep_stories2.py"], ["prep_solving.py"]):   # generative: fables + problem-solving
+    subprocess.run([sys.executable] + cmd, check=False, env=env)   # check=False: one flaky download
     #                                                                shouldn't abort the whole run
 
 
@@ -83,19 +97,21 @@ def strip_all_reward_blocks():
           f"{len(kept):,} kept", flush=True)
 
 
+# Exposure is the lever this project keeps re-learning: a skill the model sees at a few percent of
+# its diet is a skill it does not learn, no matter how long you train. v5 + the wiki slice are the
+# REPLAY stream (~50%) that keeps run #1's fluency; everything else is a skill being re-taught.
+# Targets (preflight B/B4 verify them on the real assembled corpus, so they can't silently drift):
+#   reward_design ~21%   tooluse ~15%   stories (dialogue2 + stories2) ~8%   solving ~3%
 append("data/wiki/chat.txt", 1)
-append("data/bigwiki/chat.txt", 1)           # full Wikipedia (world knowledge) for the bigger model
-append("data/bookcorpus/chat.txt", 1)        # narrative prose (storytelling/reasoning register)
-append("data/tooluse/chat.txt", 3)
-append("data/reasoning/chat.txt", 2)
-append("data/rules/chat.txt", 2)
-append("data/dialogue2/chat.txt", 10)        # sentiment-correct chat + greetings
-append("data/stories2/chat.txt", 20)         # DIVERSE real fables -> generative storytelling (weaving)
-append("data/solving/chat.txt", 6)           # generative problem-solving (obstacle -> fitting options)
-strip_all_reward_blocks()                   # remove ALL old reward data BEFORE adding the clean set
-append("data/reward_design/chat.txt", 16)   # HEAVY upweight: at 4% exposure reward-design drowned in
-                                            # both prior runs; the proxy learned it only at ~100%.
-                                            # ~20-25% exposure is the lever (verified by preflight B4).
+append("data/tooluse/chat.txt", 12)          # 2% in run #1 -> the model stopped calling its tools
+append("data/reasoning/chat.txt", 6)
+append("data/rules/chat.txt", 3)
+append("data/dialogue2/chat.txt", 12)        # sentiment chat + COMPLETE template stories (the arc)
+append("data/stories2/chat.txt", 20)         # diverse real fables, now scrubbed of index junk
+append("data/solving/chat.txt", 8)           # generative problem-solving (obstacle -> fitting options)
+strip_all_reward_blocks()                    # remove ALL old reward data BEFORE adding the clean set
+append("data/reward_design/chat.txt", 20)    # the proven recipe: ~20%+ exposure is what makes reward
+                                             # design stick (4% drowned it in two separate full runs)
 print("final corpus MB:", round(os.path.getsize("data/mixed/chat.txt") / 1e6), flush=True)
 
 warm_arg = warm[0] if WARM else ""     # "" -> train_lm falls back to random init (from scratch)
@@ -106,6 +122,6 @@ out_dir = next((d for d in ("/kaggle/working", "/content") if os.path.isdir(d) a
 out_path = os.path.join(out_dir, "apollo.pt")
 print("output model ->", out_path, flush=True)
 subprocess.run([sys.executable, "-u", "train_lm.py", "mixed", out_path,
-                "Apollo", ITERS, "8", N_EMBD, N_LAYER, "256", N_HEAD, BATCH, warm_arg, "80"],
+                "Apollo", ITERS, "8", N_EMBD, N_LAYER, "256", N_HEAD, BATCH, warm_arg, MIN_FREQ],
                env=env, check=True)
 print("TRAINING COMPLETE ->", out_path, flush=True)

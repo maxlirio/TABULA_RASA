@@ -34,27 +34,67 @@ SETTINGS = ["in a deep green forest", "by the edge of the sea", "in a quiet litt
             "high on a windy mountain", "in a busy town", "in a garden full of flowers",
             "under an old oak tree", "beside a slow river", "in a snowy valley",
             "at the edge of a wide desert", "in a house at the end of the lane"]
-WANTS = ["wanted more than anything to find a friend", "dreamed of seeing the ocean one day",
-         "wanted to learn how to fly", "was searching for a lost golden key",
-         "wanted to grow the tallest sunflower in the land", "longed to hear music again",
-         "wanted to be brave, just once", "hoped to find the way back home",
-         "wanted to see what lay beyond the hills", "wished to make the village smile"]
 EVENTS = ["a great storm rolled in from the north", "a quiet stranger arrived at dawn",
           "the only path split into two", "the sky turned a strange shade of gold",
           "a small voice called out from the trees", "the river rose higher than ever before",
           "an old map fell from a passing cart", "the last light of the day began to fade"]
-ACTIONS = ["set off down the long road", "climbed the steep and rocky hill",
-           "asked everyone in the village for help", "built a small wooden boat",
-           "followed the sound through the dark", "packed a bag and did not look back",
-           "sat very still and listened", "opened the heavy wooden door"]
 COMPLICATIONS = ["the road was harder than expected", "no one would listen at first",
                  "the old bridge had broken in two", "the nights grew cold and long",
                  "fear whispered to turn back", "the map seemed to lead in circles"]
-RESOLUTIONS = ["found exactly what {ref} had been looking for", "made a true friend along the way",
-               "learned that patience was the answer all along", "came home happier than ever before",
-               "found that the courage had been inside {pp} heart all along",
-               "helped someone else, and felt {pp} own heart grow lighter",
-               "saw the ocean at last, wide and shining and blue"]
+# QUESTS bundle want -> actions that PURSUE that want -> resolutions that SATISFY it. Picking the
+# three slots independently produced incoherent stories (a knight who "wanted a sunflower" then
+# "built a boat" and "saw the ocean"); the model dutifully learned that stories need not cohere.
+QUESTS = [
+    ("wanted more than anything to find a friend",
+     ["asked everyone in the village for help", "set off down the long road",
+      "followed the sound through the dark"],
+     ["made a true friend along the way", "found someone just as lonely, and was lonely no more"]),
+    ("dreamed of seeing the ocean one day",
+     ["packed a bag and did not look back", "set off down the long road",
+      "climbed the steep and rocky hill"],
+     ["saw the ocean at last, wide and shining and blue",
+      "stood at the shore and watched the waves come in"]),
+    ("wanted to learn how to fly",
+     ["climbed the steep and rocky hill", "tried again every morning until {pp} arms ached",
+      "watched the birds for hours and copied them"],
+     ["rose into the air at last, wobbling but flying",
+      "learned that flying was mostly falling with hope"]),
+    ("was searching for a lost golden key",
+     ["opened the heavy wooden door", "followed the old map through the dark",
+      "searched every room in the empty house"],
+     ["found the key at the bottom of a dusty drawer",
+      "found exactly what {ref} had been looking for"]),
+    ("wanted to grow the tallest sunflower in the land",
+     ["planted the seed in the best soil {pp} could find",
+      "carried water up the hill every single morning",
+      "sat very still and watched the small green shoot"],
+     ["grew a sunflower taller than the rooftops",
+      "learned that patience was the answer all along"]),
+    ("longed to hear music again",
+     ["followed the sound through the dark", "asked everyone in the village for help",
+      "opened the heavy wooden door"],
+     ["heard the old song ring out once more",
+      "found the music had been waiting all along"]),
+    ("wanted to be brave, just once",
+     ["opened the heavy wooden door", "walked straight toward the thing {p} feared most",
+      "packed a bag and did not look back"],
+     ["found that the courage had been inside {pp} heart all along",
+      "did the frightening thing, and found {p} could"]),
+    ("hoped to find the way back home",
+     ["followed the old map through the dark", "climbed the steep and rocky hill",
+      "asked everyone in the village for help"],
+     ["came home happier than ever before", "saw the lights of home at the end of the lane"]),
+    ("wanted to see what lay beyond the hills",
+     ["packed a bag and did not look back", "set off down the long road",
+      "climbed the steep and rocky hill"],
+     ["stood at the top and saw the whole wide world below",
+      "found a valley no one had ever named"]),
+    ("wished to make the village smile",
+     ["asked everyone in the village for help", "worked in secret through the night",
+      "sat very still and listened"],
+     ["helped someone else, and felt {pp} own heart grow lighter",
+      "made the whole village laugh out loud at last"]),
+]
 CLOSINGS = ["And from that day on, things were never quite so lonely.", "It was a good day, after all.",
             "And that is how it came to be.", "The end.",
             "And they say {ref} still tells the story to this day.", "Some things are worth the long road."]
@@ -78,15 +118,17 @@ def _story(r):
         ("long ago, {setting}, there lived {intro} who {want}. "
          "then one morning, {event}. without a word, {ref} {action}, though {comp}. "
          "{p} kept going, and at last {p} {res}. {close}"),
-        ("there was once {intro}. every day was the same, until {event}. "
+        ("there was once {intro} who {want}. every day was the same, until {event}. "
          "that was the day {ref} {action}. for a while {comp}, and {p} nearly gave up. "
          "but {p} tried once more, and {p} {res}. {close}"),
     ])
+    want, actions, resolutions = r.choice(QUESTS)   # action + resolution FIT the want
     sent = tmpl.format(
         intro=intro, ref=ref, setting=r.choice(SETTINGS), p=p, pp=pp,
-        want=r.choice(WANTS), event=r.choice(EVENTS), action=r.choice(ACTIONS),
+        want=want, event=r.choice(EVENTS),
+        action=r.choice(actions).format(p=p, pp=pp),
         comp=r.choice(COMPLICATIONS),
-        res=r.choice(RESOLUTIONS).format(ref=ref, pp=pp),
+        res=r.choice(resolutions).format(ref=ref, p=p, pp=pp),
         close=r.choice(CLOSINGS).format(ref=ref))
     return _cap(sent)
 
@@ -134,8 +176,11 @@ CHAT = [
 ]
 
 
-def main(n_story=0, chat_reps=800, seed=41):   # stories now come from prep_stories2 (diverse fables);
-    #                                            this file is chat/sentiment/greetings only
+def main(n_story=6000, chat_reps=800, seed=41):
+    # Stories come from BOTH sources on purpose. prep_stories2's real fables carry the variety, but
+    # fables-only (run #1) left the model with no reliable ARC — asked for a story it recited fable
+    # titles instead. These templates are the one source proven to yield complete beginning-middle-end
+    # stories, so they go back in as the minority backbone; the fables supply the imagination.
     r = random.Random(seed)
     out = []
     for _ in range(n_story):

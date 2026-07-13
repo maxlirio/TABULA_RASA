@@ -76,6 +76,17 @@ def _is_title(ln):
     return len(words) >= 2 and sum(w[0].isupper() for w in words) / len(words) >= 0.7
 
 
+_ATTR = re.compile(r"\([A-Z][a-z]+\)")   # "(French)" / "(Greek)" source-attribution tags
+
+
+def _is_index(body):
+    """Index / table-of-contents runs slip past the title splitter as a fake 'story' (the 280M run
+    memorized 'Lion and the Bull, The. La Fontaine (French)' verbatim). Real prose never repeats
+    inverted-title commas or attribution tags."""
+    inverted = body.count(", The.") + body.count(", A.") + body.count(", An.")
+    return inverted >= 2 or len(_ATTR.findall(body)) >= 2
+
+
 def _split_stories(txt):
     m = re.search(r"\*\*\* ?START OF.*?\*\*\*", txt, re.S)
     if m:
@@ -89,7 +100,7 @@ def _split_stories(txt):
             if have_title and cur:
                 body = _clean(" ".join(cur))
                 # SHORT + complete: fits the 256-token window and has a real arc
-                if 160 < len(body) < 1100 and body.count(".") >= 2:
+                if 160 < len(body) < 1100 and body.count(".") >= 2 and not _is_index(body):
                     out.append(body)
             cur, have_title = [], True
         else:
