@@ -35,7 +35,21 @@ ITERS = sys.argv[3] if len(sys.argv) > 3 else "40000"  # continuation, not base-
 N_EMBD, N_LAYER, N_HEAD, MIN_FREQ = "1024", "16", "16", "0"
 WARM = (len(sys.argv) <= 4 or sys.argv[4] != "nowarm")
 
-print("GPU:", torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU", flush=True)
+def check_gpu():
+    """Fail NOW, not 3 minutes from now. Kaggle's PyTorch ships sm_70+ kernels only, so a P100
+    (sm_60) reports cuda available and then dies on the first kernel launch -- but only AFTER the
+    corpus is assembled, so it surfaces as a cryptic CUDA trace that reads like a data bug. The
+    Kaggle API cannot request a GPU type (enable_gpu is the only knob and it defaults to a P100),
+    so the T4 is a UI choice and this guard is the only thing that catches getting it wrong."""
+    assert torch.cuda.is_available(), "No GPU. Set the notebook Accelerator to GPU T4 x2."
+    name, cap = torch.cuda.get_device_name(0), torch.cuda.get_device_capability(0)
+    print(f"GPU: {name} (sm_{cap[0]}{cap[1]})", flush=True)
+    assert cap >= (7, 0), (f"{name} is sm_{cap[0]}{cap[1]}; this PyTorch is sm_70+ only and cannot "
+                           f"execute a single kernel on it. Set the Accelerator to GPU T4 x2.")
+    (torch.zeros(8, 8, device="cuda") @ torch.zeros(8, 8, device="cuda")).sum().item()   # prove it
+
+
+check_gpu()
 env = dict(os.environ, PYTHONPATH=os.getcwd(), PYTHONUNBUFFERED="1")
 
 # find the datasets under whichever root exists (Kaggle mounts /kaggle/input; Colab uses /content)
