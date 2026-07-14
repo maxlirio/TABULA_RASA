@@ -4,15 +4,24 @@ tabula-warmstart-280m, and wikitext-103 attached:
     !cd TABULA_RASA && python t4_run.py            # defaults below
     !cd TABULA_RASA && python t4_run.py 80 4       # if out-of-memory: less wiki, smaller batch
 
-RUN #2 - SKILLS. Run #1 built the 280M base from scratch on 1.7GB (full Wikipedia + BookCorpus) and
-bought real fluency: natural chat, genuine multi-option problem-solving. But at that scale the
-SKILLS drowned - tooluse was 2% of exposure and the model stopped calling its tools (asked the date
-it invented a time; told "a wug is a kind of bird" it never fired a store CALL), while stories were
-2% AND contaminated with fable-index junk, so "tell me a story" recited titles.
+RUN #3. It warm-starts run #1's weights (same 1024/16 arch, so every tensor carries over) and
+re-feeds the skills at exposures that can actually be learned, keeping v5 + a wiki slice as a REPLAY
+stream so the fluency the base run paid 9.5 hours for isn't forgotten.
 
-So this run does NOT rebuild the base. It warm-starts run #1's weights (same 1024/16 arch, so every
-tensor carries over) and re-feeds the skills at exposures that can actually be learned, keeping v5 +
-a wiki slice as a REPLAY stream so the fluency we just paid 9.5 hours for isn't forgotten.
+WHAT RUN #2 ACTUALLY TAUGHT US (it trained 40k iters and shipped a copy of its own input):
+  - Its premise was half wrong. "The model stopped calling its tools" was a STALE PROBE talking: the
+    tool probe still demanded a CALL on reward prompts, years after 69e4375 retired the lookup plan
+    tool and made reward design generative. Run #1 scores 1.00 on the corrected probe -- its tools
+    were never broken. The old probe was pinned at 0.68 for all 201 evals, so half the
+    checkpoint-selection metric was a CONSTANT.
+  - The saver then compared every trained checkpoint against iter 1 -- which, on a warm start, IS
+    THE INPUT MODEL. Nothing beat it, so it staged iter 1 and discarded the trained weights unsaved.
+  - And rules DROWNED, exactly as tooluse had: 1.2% of exposure, probe 0.71 -> 0.50. Same disease,
+    new organ. The gate had floors only for the skills that had already failed.
+
+So this run: rules 3x -> 14x (1.2% -> 5.2%), a corrected tool probe, a STORY probe (the headline
+goal, previously unmeasured, graded at the shell's own decoding), and a saver that treats the warm
+baseline as something to BEAT and always writes the final model.
 """
 import glob
 import os
@@ -137,7 +146,8 @@ scrub_base_markup()                          # v5 base only — must precede the
 append("data/wiki/chat.txt", 1)
 append("data/tooluse/chat.txt", 12)          # 2% in run #1 -> the model stopped calling its tools
 append("data/reasoning/chat.txt", 6)
-append("data/rules/chat.txt", 3)
+append("data/rules/chat.txt", 14)       # 3x = 1.2% and the rules skill DROWNED in run
+                                             # #2 (probe 0.71 -> 0.50). 14x = 5.2%.
 append("data/dialogue2/chat.txt", 12)        # sentiment chat + COMPLETE template stories (the arc)
 append("data/stories2/chat.txt", 20)         # diverse real fables, now scrubbed of index junk
 append("data/solving/chat.txt", 8)           # generative problem-solving (obstacle -> fitting options)

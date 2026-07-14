@@ -39,7 +39,7 @@ WIKI_MB = sys.argv[2] if len(sys.argv) > 2 else "120"
 # Append weights MUST mirror t4_run.py or this gate is testing a corpus nobody will train on. ONE
 # list, used for both the assembly and the exposure maths (they were two lists, which is how they
 # drift apart). reward_design stays last: it is appended AFTER the old-reward strip.
-WEIGHTS = [("wiki", 1), ("tooluse", 12), ("reasoning", 6), ("rules", 3), ("dialogue2", 12),
+WEIGHTS = [("wiki", 1), ("tooluse", 12), ("reasoning", 6), ("rules", 14), ("dialogue2", 12),
            ("stories2", 20), ("solving", 8), ("reward_design", 20)]
 _TOK = re.compile(r"\n|[+\-]?[A-Za-z][A-Za-z_]*(?:\([a-z]+\))?|[0-9]+|[^\sA-Za-z0-9]")
 _re_attr = re.compile(r"\([A-Z][a-z]+\)")     # "(French)" source tags -> a fable index, not a story
@@ -219,7 +219,11 @@ report.append(("B4. reward-design exposure", okB4,
 # fell to 2% and the model simply stopped calling its tools (invented a time instead of asking the
 # clock), while stories at 2% collapsed into reciting fable-index lines. Same disease as reward
 # design, different organ. So gate every skill we are paying to re-teach, not just the reward one.
-SKILL_FLOORS = {"tooluse": 0.10, "solving": 0.02}
+# rules is here because run #2 drowned it exactly as run #1 drowned tooluse: it sat at 1.2% of
+# exposure and its probe fell 0.71 -> 0.50 over the run. This gate listed floors for the skills that
+# had already failed, which is how the NEXT skill quietly goes under. Every skill we pay to teach
+# gets a floor.
+SKILL_FLOORS = {"tooluse": 0.10, "solving": 0.02, "rules": 0.04}
 story_exp = exposure.get("dialogue2", 0) + exposure.get("stories2", 0)   # two sources, one skill
 skill_bad = [f"{n} {exposure.get(n, 0):.0%} (want >={f:.0%})"
              for n, f in SKILL_FLOORS.items() if exposure.get(n, 0) < f]
@@ -228,7 +232,7 @@ if story_exp < 0.05:
 okB5 = not skill_bad
 report.append(("B5. skill exposure floors", okB5,
                f"tooluse {exposure.get('tooluse', 0):.0%}, stories {story_exp:.0%}, "
-               f"solving {exposure.get('solving', 0):.0%}"
+               f"solving {exposure.get('solving', 0):.0%}, rules {exposure.get('rules', 0):.0%}"
                + (f"; TOO LOW: {', '.join(skill_bad)}" if skill_bad else " — all learnable")))
 
 # B6. story-source sanity: the fable scrape is the one source that can silently come back EMPTY (a

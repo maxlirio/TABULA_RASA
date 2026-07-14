@@ -165,19 +165,25 @@ def main(subdir="modern", ckpt="apollo.pt", name="Apollo", iters=2500, threads=N
             hits += (g[:len(expect)] == expect)
         return hits / len(probes)
 
-    # --- tool-use probe: does it know WHEN to call a tool? Measures BOTH recall (emit CALL on a
-    # real request) AND precision (do NOT emit CALL on plain chat). Held-out items so it can't
-    # memorize. Returns ~0.5 on corpora without tool-use data (no calls -> all negatives right). ---
-    tool_reqs = ["design a reward system for {}", "make a reward for {}", "i want it to {}",
-                 "how should i reward {}", "give me a reward for {}", "what is {}"]
-    tool_pos = ["winning the race", "stacking the cups", "sorting the mail", "feeding the dog",
-                "painting the fence", "47 times 6"]
-    tool_direct = ["what day is it", "what time is it", "what's the date", "what year is it",
-                   "what comes next: 3 6 9 12", "finish the sequence 2 4 8 16",
-                   "code a reward for winning the game", "write a reward function for walking"]
+    # --- tool-use probe: does it know WHEN to call a tool? Recall (emit CALL when a tool is the
+    # only way to know) AND precision (do NOT emit CALL otherwise).
+    #
+    # REWARD PROMPTS ARE NEGATIVES. They used to be positives, from back when a lookup "plan tool"
+    # answered them -- but 69e4375 RETIRED that tool and made reward design generative, and the
+    # reward_design corpus (20% of exposure) now teaches the model to answer them DIRECTLY. The
+    # probe kept demanding a CALL, so it scored the correct behaviour as failure and pinned itself
+    # at 0.68 for an entire 40k-iter run -- half the checkpoint-selection metric, frozen. A probe
+    # must track the corpus it grades; when a skill is retired, its probe is retired with it. ---
+    tool_pos = ["what day is it", "what time is it", "what's the date", "what year is it",
+                "what comes next: 3 6 9 12", "finish the sequence 2 4 8 16",
+                "what is 47 times 6", "what is 15% of 200"]      # only a tool can know these
     tool_neg = ["i have three cats at home", "i went running this morning", "how are you today",
                 "i love a sunny day", "tell me a story", "my favorite color is blue",
-                "i'm feeling a bit tired", "we have 5 people coming over"]
+                "i'm feeling a bit tired", "we have 5 people coming over",
+                # generative reward design: answer it, do NOT call a tool
+                "design a reward system for winning the race", "make a reward for stacking the cups",
+                "how should i reward feeding the dog", "give me a reward for painting the fence",
+                "code a reward for winning the game", "write a reward function for walking"]
 
     def _calls(text):
         ids = coder.encode(f"USER: {text}\n")
@@ -187,13 +193,48 @@ def main(subdir="modern", ckpt="apollo.pt", name="Apollo", iters=2500, threads=N
         return coder.decode(o[len(ids):]).strip().lower().startswith("call:")
 
     def tool_gen():
-        hits = sum(_calls(tool_reqs[i % len(tool_reqs)].format(g)) for i, g in enumerate(tool_pos))
-        hits += sum(_calls(q) for q in tool_direct)          # date/time questions -> should CALL
-        hits += sum(not _calls(neg) for neg in tool_neg)     # chat -> should NOT call
-        return hits / (len(tool_pos) + len(tool_direct) + len(tool_neg))
+        hits = sum(_calls(q) for q in tool_pos)              # clock/calc/solve -> should CALL
+        hits += sum(not _calls(q) for q in tool_neg)         # chat + reward design -> should NOT
+        return hits / (len(tool_pos) + len(tool_neg))
+
+    # --- story probe: run #2's HEADLINE goal, and nothing measured it -- so the saver would happily
+    # discard a model that told perfect stories. Run #1's failure mode is degeneration: it produced
+    # real narrative that looped ("Venus was very gracious about it, and changed her into a woman"
+    # x3) and never reached an ending. Distinct-4 catches exactly that: a looping story reuses its
+    # 4-grams, a healthy one barely repeats. Cheap, continuous, and it fails the thing we saw. ---
+    story_reqs = ["tell me a story", "tell me a bedtime story", "spin me a tale", "tell me a tale"]
+
+    def story_gen():
+        scores = []
+        for q in story_reqs:
+            ids = coder.encode(f"USER: {q}\nBOT: ")
+            # temp 0.4 / top_k 40 = EXACTLY what gm/chat.py decodes with. Degeneration is a property
+            # of the decoding regime, not the weights: this model scores 0.99 at temp 0.8 (probe sees
+            # nothing), 0.89 at the shell's settings, and 0.67 greedy ("I was a great man, and I was
+            # a great man"). Grade the regime the user actually experiences, or the probe saturates
+            # and drives nothing -- which is how `tool` sat frozen for a whole run.
+            o = model.generate(torch.tensor([ids]).to(device), 120, temp=0.4, top_k=40,
+                               ban=[unk_id] if unk_id is not None else None)[0].tolist()
+            w = coder.decode(o[len(ids):]).split("■")[0].split("USER:")[0].split()
+            if len(w) < 24:                      # too short to be a story at all
+                scores.append(0.0)
+                continue
+            g = [tuple(w[i:i + 4]) for i in range(len(w) - 3)]
+            scores.append(len(set(g)) / len(g))  # distinct-4: 1.0 = no repetition, low = looping
+        return sum(scores) / len(scores)
 
     t0 = time.time()
-    best = (-1.0, float("inf"))               # (gen+tool, -val): maximize skills, then min val
+    # (skills, -val): maximize the skills we are paying to teach, then minimize val loss.
+    #
+    # On a WARM-START run, iter 1 IS THE INPUT MODEL. Run #2 learned this the expensive way: run #1
+    # already scored well, fine-tuning transiently disturbs the probes (normal), nothing in 40,000
+    # iterations beat the incumbent, so the saver staged iter 1 and os.replace swapped it in --
+    # 4.7 GPU-hours whose entire output was a copy of the input, with the trained model discarded
+    # unsaved. So when warm-starting, iter 1 is a BASELINE to print and beat, never a candidate to
+    # save. And the last model is now ALWAYS written, so a run can never again produce nothing.
+    best = (-1.0, float("inf"))
+    baseline = None
+    last_path = final_path.replace(".pt", "_last.pt")
     amp = (device == "cuda")                  # fp16 mixed precision — big speedup on tensor-core GPUs (T4)
     scaler = torch.cuda.amp.GradScaler(enabled=amp)
     for it in range(1, iters + 1):
@@ -211,21 +252,42 @@ def main(subdir="modern", ckpt="apollo.pt", name="Apollo", iters=2500, threads=N
                 vl = sum(model(*get_batch(val))[1].item() for _ in range(5)) / 5  # avg val
                 gen = rule_gen()
                 tool = tool_gen()
+                story = story_gen()
                 seed = torch.tensor([[coder.stoi.get("\n", 0)]]).to(device)
                 sample = coder.decode(model.generate(seed, 40, temp=0.8)[0][1:])
+            skills = gen + tool + story
             star = ""
-            if (gen + tool, -vl) > best:      # keep the checkpoint best at the SKILLS we want
-                best = (gen + tool, -vl)
+            if it == 1 and warmed:
+                # the incumbent: what the warm checkpoint already scores. Print it, don't save it.
+                baseline = skills
+                star = "  <- WARM BASELINE (not a candidate; the run must BEAT this)"
+            elif (skills, -vl) > best:        # keep the checkpoint best at the SKILLS we want
+                best = (skills, -vl)
                 model.to("cpu")
                 save(model, coder, stage_path)
                 model.to(device)
                 star = "  <- saved (best)"
             print(f"\n--- [{name}] iter {it}  train {loss.item():.3f}  val {vl:.3f}  "
-                  f"gen {gen:.2f}  tool {tool:.2f}  {time.time() - t0:.0f}s{star} ---")
+                  f"gen {gen:.2f}  tool {tool:.2f}  story {story:.2f}  skills {skills:.2f}"
+                  f"  {time.time() - t0:.0f}s{star} ---")
             print(sample.replace("\n", " "))
             model.train()
-    os.replace(stage_path, final_path)        # swap the best model in atomically
-    print(f"\nDONE. saved {ckpt} ({name})")
+
+    # ALWAYS write the final model, whatever the probes said. A run that trains for hours and
+    # writes nothing is the worst possible outcome, and it is what run #2 did.
+    model.to("cpu")
+    save(model, coder, last_path)
+    model.to(device)
+    if os.path.exists(stage_path):
+        os.replace(stage_path, final_path)    # swap the best model in atomically
+        print(f"\nDONE. best -> {ckpt}   last -> {os.path.basename(last_path)} ({name})")
+    else:
+        save(model, coder, final_path)        # nothing ever beat the baseline
+        print(f"\nDONE. NO checkpoint beat the warm baseline ({baseline:.2f}); "
+              f"wrote the FINAL model to {ckpt} anyway. last -> {os.path.basename(last_path)}")
+    if baseline is not None:
+        print(f"[{name}] warm baseline skills {baseline:.2f} -> best trained {best[0]:.2f} "
+              f"({'IMPROVED' if best[0] > baseline else 'DID NOT IMPROVE'})")
 
 
 if __name__ == "__main__":
