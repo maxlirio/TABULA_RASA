@@ -38,12 +38,19 @@ class Tendrils:
     brain actually knows its suit -- and this project has been fooled by a pretty loss curve before.
     """
 
-    def __init__(self, handles, dud_tol=0.30):
+    def __init__(self, handles, dud_tol=0.30, decay=0.995):
         self.handles = list(handles)
         self.n = len(handles)
-        self.deltas = [Counter() for _ in range(self.n)]   # every outcome ever seen, per handle
+        self.deltas = [Counter() for _ in range(self.n)]   # outcomes seen per handle, DECAYED
         self.tries = np.zeros(self.n, dtype=np.int64)
         self.dud_tol = dud_tol
+        # A BRAIN THAT CANNOT FORGET CANNOT ADAPT. Without decay, `intent` is the mode over all
+        # history, so after the body is rewired the old observations outvote the new ones and the
+        # brain stubbornly insists its arm still works the way it used to. The test suite hid this
+        # -- it passed only because its step budget happened to let new evidence outnumber old.
+        # WATCHING it is what exposed it. Decay gives belief a horizon: recent evidence wins.
+        self.decay = decay
+        self._last_intent = [None] * self.n
         self.blocked = set()        # cells it has been STOPPED by -- walls and edges alike
         self.free = set()           # cells it has actually stood in
         self.errors = []
@@ -80,17 +87,28 @@ class Tendrils:
         self.errors.append(err)
 
         d = (int(obs2[0] - obs[0]), int(obs2[1] - obs[1]))
-        self.deltas[a][d] += 1
+        for k in list(self.deltas[a]):           # old evidence fades, so belief has a horizon
+            self.deltas[a][k] *= self.decay
+        self.deltas[a][d] += 1.0
         self.tries[a] += 1
         self.free.add((int(obs2[0]), int(obs2[1])))
 
+        now = self.intent(a)
+        if self._last_intent[a] is not None and now != self._last_intent[a]:
+            # THE BODY CHANGED. Every wall we ever inferred was deduced from what we believed our
+            # commands did -- and that belief was just proven wrong. The affordance map is downstream
+            # of the action model, so it is now suspect. Throw it out and re-map; it rebuilds fast.
+            # (Without this, stale intents write PHANTOM WALLS into cells the body has stood in --
+            # which is how "cells figured out: 56/49" happened.)
+            self.blocked.clear()
+        self._last_intent[a] = now
+
         if d == (0, 0):
-            dx, dy = self.intent(a)             # we did not move. WHY?
+            dx, dy = now                        # we did not move. WHY?
             if (dx, dy) != (0, 0):              # the command has a real intent -> the world stopped us
                 self.blocked.add((int(obs[0]) + dx, int(obs[1]) + dy))
         else:
-            # we DID move here, so this cell is not blocked after all (a stale belief, e.g. a rule
-            # flip changed which handle does what and we mis-blamed a cell). Retract it.
+            # we DID move here, so this cell is not blocked after all. Retract the belief.
             self.blocked.discard((int(obs2[0]), int(obs2[1])))
         return err
 
