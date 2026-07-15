@@ -80,6 +80,18 @@ class RobotSuit:
     def observe(self):
         return np.array(self.pose, dtype=np.float32)               # (x, y, yaw) from SLAM
 
+    def _free_at(self, x, y):
+        return 0 <= x < self.w and 0 <= y < self.h and bool(self.free[x, y])
+
+    def scan(self):
+        """A LOCAL LiDAR reading: occupancy of the 4 neighbouring cells + heading. It does NOT
+        reveal (x, y) -- every open-floor cell returns the same all-clear pattern -- so a single
+        reading cannot locate the robot. This is the perceptual-aliasing (non-Markov) case: the
+        robot must MOVE and integrate readings to know where it is."""
+        x, y, yaw = self.pose
+        bits = tuple(0 if self._free_at(x + dx, y + dy) else 1 for dx, dy in _YAW_TO_DIR)
+        return bits, int(yaw)
+
     def step(self, a):
         kind, vec = self._wiring[a]
         x, y, yaw = self.pose
