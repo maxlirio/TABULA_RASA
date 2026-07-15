@@ -25,13 +25,45 @@ _EFFECTS = [(-1, 0), (1, 0), (0, -1), (0, 1)]        # north, south, west, east
 NOOP = None
 
 
+class RawEncoder:
+    """A ROBOT'S EYES instead of a clean (x, y).
+
+    A real body never hands its brain "you are at cell (3, 4)". It hands it a pile of sensor
+    numbers -- joint angles, IMU, range-finders -- in which position is BURIED: mixed together
+    through some unknown transform, blurred by sensor noise, and padded with readings that carry
+    no positional information at all (a sensor pointed at a blank wall). The brain is NOT told the
+    dimension means anything, nor which numbers are position, nor even that position is in there.
+
+    This encoder is exactly that: true (x, y) -> a `dim`-vector = an unknown linear MIXING of the
+    two coordinates, plus gaussian NOISE, plus `dead` dimensions that never respond to movement.
+    If the tendrils only worked because observation==state, they will shatter here. That is the
+    point -- it is the same wall the robot will present.
+    """
+
+    def __init__(self, dim=12, noise=0.05, dead=4, seed=0):
+        rng = np.random.default_rng(seed)
+        A = rng.normal(size=(dim, 2))                 # position lives on a 2-D plane tilted in dim-D
+        self.dead_idx = set()
+        if dead:
+            for i in rng.choice(dim, size=min(dead, dim), replace=False):
+                A[i] = 0.0                            # a stuck sensor: no positional signal at all
+                self.dead_idx.add(int(i))
+        self.A, self.b, self.noise, self.dim = A, rng.normal(size=dim), noise, dim
+        self._rng = rng
+
+    def __call__(self, x, y):
+        base = self.A @ np.array([x, y], dtype=float) + self.b
+        return (base + self._rng.normal(size=self.dim) * self.noise).astype(np.float32)
+
+
 class GridWorld:
     """A W x H grid with walls. Observation = (agent_x, agent_y). Actions = opaque handles."""
 
-    def __init__(self, w=7, h=7, n_handles=8, seed=0, flip_at=None, walls=True):
+    def __init__(self, w=7, h=7, n_handles=8, seed=0, flip_at=None, walls=True, encoder=None):
         self.w, self.h, self.seed = w, h, seed
         self.rng = np.random.default_rng(seed)
         self.flip_at, self.steps = flip_at, 0
+        self.encoder = encoder                        # None -> clean (x,y); RawEncoder -> robot eyes
 
         # --- the secret wiring: handle -> effect. Randomised, with duds and synonyms. ---
         eff = [_EFFECTS[i % 4] for i in range(n_handles)]      # guarantees all 4 directions exist
@@ -60,7 +92,16 @@ class GridWorld:
         return self.observe()
 
     def observe(self):
+        if self.encoder is not None:
+            return self.encoder(*self.pos)            # raw sensor reading, position buried inside
         return np.array(self.pos, dtype=np.float32)
+
+    def encode(self, pos):
+        """The raw reading the body WOULD emit at `pos` (for setting a goal), without moving there."""
+        return self.encoder(*pos) if self.encoder is not None else np.array(pos, dtype=np.float32)
+
+    def true_pos(self):
+        return np.array(self.pos, dtype=np.float32)   # ground truth -- scoring only, never the brain
 
     def step(self, handle_idx):
         """Take a command by INDEX into self.handles. Returns the new observation."""
