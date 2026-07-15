@@ -1,0 +1,2189 @@
+USER: i need you to go to the charger
+BOT: CALL: goto charger
+
+USER: robot, return to base
+BOT: CALL: goto start
+
+USER: i need you to return to base
+BOT: CALL: goto start
+
+USER: now move to the north wall
+BOT: CALL: goto north
+
+USER: i want you to head to the closest corner
+BOT: CALL: goto near_corner
+
+USER: can you take the robot up the stairs
+BOT: CALL: climb stairs
+
+USER: i need you to go down
+BOT: CALL: goto south
+
+USER: i want you to go get charged
+BOT: CALL: goto charger
+
+USER: would you go to the nearest corner
+BOT: CALL: goto near_corner
+
+USER: please get to the door
+BOT: CALL: goto door
+
+USER: can you go up the stairs
+BOT: CALL: climb stairs
+
+USER: could you go right
+BOT: CALL: goto east
+
+USER: go right
+BOT: CALL: goto east
+
+USER: climb the stairs please
+BOT: CALL: climb stairs
+
+USER: can you up the stairs
+BOT: CALL: climb stairs
+
+USER: get to the other end
+BOT: CALL: goto other_side
+
+USER: move to the north wall please
+BOT: CALL: goto north
+
+USER: please walk to the corner
+BOT: CALL: goto near_corner
+
+USER: now head to the window
+BOT: CALL: goto window
+
+USER: could you go south
+BOT: CALL: goto south
+
+USER: climb up please
+BOT: CALL: climb stairs
+
+USER: robot, dock at the charger
+BOT: CALL: goto charger
+
+USER: could you head to the charging dock
+BOT: CALL: goto charger
+
+USER: would you get to the table
+BOT: CALL: goto table
+
+USER: go to the charger
+BOT: CALL: goto charger
+
+USER: would you head west
+BOT: CALL: goto west
+
+USER: can you hello there
+BOT: hi!
+
+USER: could you head to the center of the room
+BOT: CALL: goto middle
+
+USER: i want you to approach the door
+BOT: CALL: goto door
+
+USER: could you go charge
+BOT: CALL: goto charger
+
+USER: approach the door please
+BOT: CALL: goto door
+
+USER: now get to the other corner
+BOT: CALL: goto far_corner
+
+USER: please climb up
+BOT: CALL: climb stairs
+
+USER: would you move to the door
+BOT: CALL: goto door
+
+USER: i want you to head upstairs
+BOT: CALL: climb stairs
+
+USER: now go up the stairs
+BOT: CALL: climb stairs
+
+USER: i want you to head to the door
+BOT: CALL: goto door
+
+USER: now walk up the steps
+BOT: CALL: climb stairs
+
+USER: move to the center please
+BOT: CALL: goto middle
+
+USER: robot, head upstairs
+BOT: CALL: climb stairs
+
+USER: i need you to go to the nearest corner
+BOT: CALL: goto near_corner
+
+USER: now go to the table
+BOT: CALL: goto table
+
+USER: please move to the center
+BOT: CALL: goto middle
+
+USER: can you go charge
+BOT: CALL: goto charger
+
+USER: please walk over to the table
+BOT: CALL: goto table
+
+USER: please get to the table
+BOT: CALL: goto table
+
+USER: can you dock at the charger
+BOT: CALL: goto charger
+
+USER: can you move to the center
+BOT: CALL: goto middle
+
+USER: please go to the middle
+BOT: CALL: goto middle
+
+USER: i want you to head west
+BOT: CALL: goto west
+
+USER: walk to the doorway
+BOT: CALL: goto door
+
+USER: head upstairs
+BOT: CALL: climb stairs
+
+USER: would you go to the other side
+BOT: CALL: goto other_side
+
+USER: go up
+BOT: CALL: goto north
+
+USER: please head to the door
+BOT: CALL: goto door
+
+USER: would you get to the top of the stairs
+BOT: CALL: climb stairs
+
+USER: can you go to the other side
+BOT: CALL: goto other_side
+
+USER: now dock at the charger
+BOT: CALL: goto charger
+
+USER: can you get to the other end
+BOT: CALL: goto other_side
+
+USER: would you go to the middle
+BOT: CALL: goto middle
+
+USER: i want you to cross the room
+BOT: CALL: goto other_side
+
+USER: now head south
+BOT: CALL: goto south
+
+USER: go north
+BOT: CALL: goto north
+
+USER: i want you to dock at the charger
+BOT: CALL: goto charger
+
+USER: i need you to go up to the next floor
+BOT: CALL: climb stairs
+
+USER: can you head to the closest corner
+BOT: CALL: goto near_corner
+
+USER: approach the table
+BOT: CALL: goto table
+
+USER: could you get to the other end
+BOT: CALL: goto other_side
+
+USER: i want you to walk to the doorway
+BOT: CALL: goto door
+
+USER: would you over to the window
+BOT: CALL: goto window
+
+USER: i need you to head to the table
+BOT: CALL: goto table
+
+USER: robot, go get charged
+BOT: CALL: goto charger
+
+USER: would you go back to the start
+BOT: CALL: goto start
+
+USER: can you go south
+BOT: CALL: goto south
+
+USER: would you walk to the doorway
+BOT: CALL: goto door
+
+USER: go back home
+BOT: CALL: goto start
+
+USER: i want you to go south
+BOT: CALL: goto south
+
+USER: go up please
+BOT: CALL: goto north
+
+USER: i want you to move to the south wall
+BOT: CALL: goto south
+
+USER: robot, walk across the room
+BOT: CALL: goto other_side
+
+USER: robot, ascend the staircase
+BOT: CALL: climb stairs
+
+USER: could you head to the far side
+BOT: CALL: goto other_side
+
+USER: get to the other corner please
+BOT: CALL: goto far_corner
+
+USER: move to the east wall please
+BOT: CALL: goto east
+
+USER: i want you to go back to the start
+BOT: CALL: goto start
+
+USER: please go down
+BOT: CALL: goto south
+
+USER: can you move to the north wall
+BOT: CALL: goto north
+
+USER: now head to the farthest corner
+BOT: CALL: goto far_corner
+
+USER: i want you to move to the east wall
+BOT: CALL: goto east
+
+USER: move to the door
+BOT: CALL: goto door
+
+USER: could you head west
+BOT: CALL: goto west
+
+USER: i want you to take the robot up the stairs
+BOT: CALL: climb stairs
+
+USER: i want you to go to the charger
+BOT: CALL: goto charger
+
+USER: robot, get to the other corner
+BOT: CALL: goto far_corner
+
+USER: move to the west wall
+BOT: CALL: goto west
+
+USER: go east
+BOT: CALL: goto east
+
+USER: could you hello there
+BOT: hi!
+
+USER: i need you to up the stairs
+BOT: CALL: climb stairs
+
+USER: could you go back home
+BOT: CALL: goto start
+
+USER: i want you to walk up the steps
+BOT: CALL: climb stairs
+
+USER: can you go to the charger
+BOT: CALL: goto charger
+
+USER: i need you to go to the table
+BOT: CALL: goto table
+
+USER: please head east
+BOT: CALL: goto east
+
+USER: up the stairs please
+BOT: CALL: climb stairs
+
+USER: i need you to go charge
+BOT: CALL: goto charger
+
+USER: would you walk to the corner
+BOT: CALL: goto near_corner
+
+USER: would you climb up
+BOT: CALL: climb stairs
+
+USER: now head west
+BOT: CALL: goto west
+
+USER: can you tell me a story
+BOT: once, a small robot learned to walk.
+
+USER: now walk across the room
+BOT: CALL: goto other_side
+
+USER: go get charged please
+BOT: CALL: goto charger
+
+USER: can you get to the door
+BOT: CALL: goto door
+
+USER: head south
+BOT: CALL: goto south
+
+USER: would you take the stairs up
+BOT: CALL: climb stairs
+
+USER: please head south
+BOT: CALL: goto south
+
+USER: could you get to the other corner
+BOT: CALL: goto far_corner
+
+USER: walk over to the table
+BOT: CALL: goto table
+
+USER: can you go up to the next floor
+BOT: CALL: climb stairs
+
+USER: could you go north
+BOT: CALL: goto north
+
+USER: please go to the nearest corner
+BOT: CALL: goto near_corner
+
+USER: could you what can you do
+BOT: i can go places you name, and climb the stairs.
+
+USER: i want you to go east
+BOT: CALL: goto east
+
+USER: please approach the door
+BOT: CALL: goto door
+
+USER: could you move to the north wall
+BOT: CALL: goto north
+
+USER: i need you to get to the door
+BOT: CALL: goto door
+
+USER: robot, head west
+BOT: CALL: goto west
+
+USER: robot, go to the door
+BOT: CALL: goto door
+
+USER: now stand in the middle
+BOT: CALL: goto middle
+
+USER: get to the table please
+BOT: CALL: goto table
+
+USER: i want you to get to the other corner
+BOT: CALL: goto far_corner
+
+USER: now go to the door
+BOT: CALL: goto door
+
+USER: now walk to the doorway
+BOT: CALL: goto door
+
+USER: robot, head to the charging dock
+BOT: CALL: goto charger
+
+USER: can you go to the far corner
+BOT: CALL: goto far_corner
+
+USER: up the stairs
+BOT: CALL: climb stairs
+
+USER: could you head to the window
+BOT: CALL: goto window
+
+USER: i need you to ascend the staircase
+BOT: CALL: climb stairs
+
+USER: i need you to head to the window
+BOT: CALL: goto window
+
+USER: i want you to move to the center
+BOT: CALL: goto middle
+
+USER: please go to the centre
+BOT: CALL: goto middle
+
+USER: please go to the window
+BOT: CALL: goto window
+
+USER: can you walk over to the table
+BOT: CALL: goto table
+
+USER: please go to the charger
+BOT: CALL: goto charger
+
+USER: would you cross the room
+BOT: CALL: goto other_side
+
+USER: now climb up
+BOT: CALL: climb stairs
+
+USER: please go charge
+BOT: CALL: goto charger
+
+USER: would you go down
+BOT: CALL: goto south
+
+USER: i need you to take the stairs up
+BOT: CALL: climb stairs
+
+USER: could you thanks
+BOT: you're welcome!
+
+USER: i want you to walk to the corner
+BOT: CALL: goto near_corner
+
+USER: would you ascend the staircase
+BOT: CALL: climb stairs
+
+USER: i need you to climb up
+BOT: CALL: climb stairs
+
+USER: robot, stand in the middle
+BOT: CALL: goto middle
+
+USER: now take the stairs up
+BOT: CALL: climb stairs
+
+USER: go back home please
+BOT: CALL: goto start
+
+USER: return to base
+BOT: CALL: goto start
+
+USER: get to the table
+BOT: CALL: goto table
+
+USER: would you move to the north wall
+BOT: CALL: goto north
+
+USER: i need you to walk to the corner
+BOT: CALL: goto near_corner
+
+USER: i need you to head to the closest corner
+BOT: CALL: goto near_corner
+
+USER: what's your name
+BOT: i'm the robot.
+
+USER: would you head to the far side
+BOT: CALL: goto other_side
+
+USER: go left
+BOT: CALL: goto west
+
+USER: can you head to the window
+BOT: CALL: goto window
+
+USER: now walk over to the table
+BOT: CALL: goto table
+
+USER: robot, move to the south wall
+BOT: CALL: goto south
+
+USER: now get to the door
+BOT: CALL: goto door
+
+USER: can you return to base
+BOT: CALL: goto start
+
+USER: head to the center of the room please
+BOT: CALL: goto middle
+
+USER: take the robot up the stairs
+BOT: CALL: climb stairs
+
+USER: robot, head to the window
+BOT: CALL: goto window
+
+USER: i want you to move to the west wall
+BOT: CALL: goto west
+
+USER: now go to the centre
+BOT: CALL: goto middle
+
+USER: robot, head to the door
+BOT: CALL: goto door
+
+USER: could you move to the center
+BOT: CALL: goto middle
+
+USER: i want you to go left
+BOT: CALL: goto west
+
+USER: can you head north
+BOT: CALL: goto north
+
+USER: go to the centre
+BOT: CALL: goto middle
+
+USER: could you move to the east wall
+BOT: CALL: goto east
+
+USER: now go back to the start
+BOT: CALL: goto start
+
+USER: i need you to move to the north wall
+BOT: CALL: goto north
+
+USER: please get to the top of the stairs
+BOT: CALL: climb stairs
+
+USER: tell me a story
+BOT: once, a small robot learned to walk.
+
+USER: could you go to the charger
+BOT: CALL: goto charger
+
+USER: head to the window please
+BOT: CALL: goto window
+
+USER: robot, climb the stairs
+BOT: CALL: climb stairs
+
+USER: can you head to the center of the room
+BOT: CALL: goto middle
+
+USER: please go get charged
+BOT: CALL: goto charger
+
+USER: i want you to up the stairs
+BOT: CALL: climb stairs
+
+USER: could you go to the middle
+BOT: CALL: goto middle
+
+USER: get to the top of the stairs please
+BOT: CALL: climb stairs
+
+USER: would you go up
+BOT: CALL: goto north
+
+USER: i need you to move to the south wall
+BOT: CALL: goto south
+
+USER: could you go get charged
+BOT: CALL: goto charger
+
+USER: robot, get to the top of the stairs
+BOT: CALL: climb stairs
+
+USER: please head west
+BOT: CALL: goto west
+
+USER: head to the window
+BOT: CALL: goto window
+
+USER: would you go left
+BOT: CALL: goto west
+
+USER: would you head back to where you started
+BOT: CALL: goto start
+
+USER: go south
+BOT: CALL: goto south
+
+USER: get to the other end please
+BOT: CALL: goto other_side
+
+USER: would you head to the farthest corner
+BOT: CALL: goto far_corner
+
+USER: robot, go up the stairs
+BOT: CALL: climb stairs
+
+USER: walk to the opposite corner please
+BOT: CALL: goto far_corner
+
+USER: over to the window please
+BOT: CALL: goto window
+
+USER: robot, get to the door
+BOT: CALL: goto door
+
+USER: would you take the robot up the stairs
+BOT: CALL: climb stairs
+
+USER: robot, head back to where you started
+BOT: CALL: goto start
+
+USER: could you head to the door
+BOT: CALL: goto door
+
+USER: i need you to go to the far corner
+BOT: CALL: goto far_corner
+
+USER: now go to the middle
+BOT: CALL: goto middle
+
+USER: walk to the doorway please
+BOT: CALL: goto door
+
+USER: now return to the charger
+BOT: CALL: goto charger
+
+USER: can you walk up the steps
+BOT: CALL: climb stairs
+
+USER: please move to the west wall
+BOT: CALL: goto west
+
+USER: cross the room
+BOT: CALL: goto other_side
+
+USER: could you move to the west wall
+BOT: CALL: goto west
+
+USER: i need you to go to the centre
+BOT: CALL: goto middle
+
+USER: now head to the center of the room
+BOT: CALL: goto middle
+
+USER: i want you to go back home
+BOT: CALL: goto start
+
+USER: can you over to the window
+BOT: CALL: goto window
+
+USER: i need you to go north
+BOT: CALL: goto north
+
+USER: please head to the charging dock
+BOT: CALL: goto charger
+
+USER: could you head to the closest corner
+BOT: CALL: goto near_corner
+
+USER: can you go back to the start
+BOT: CALL: goto start
+
+USER: now approach the door
+BOT: CALL: goto door
+
+USER: i need you to go up the stairs
+BOT: CALL: climb stairs
+
+USER: i need you to head to the door
+BOT: CALL: goto door
+
+USER: please head back to where you started
+BOT: CALL: goto start
+
+USER: go to the other side
+BOT: CALL: goto other_side
+
+USER: would you head to the door
+BOT: CALL: goto door
+
+USER: robot, move to the west wall
+BOT: CALL: goto west
+
+USER: go to the door please
+BOT: CALL: goto door
+
+USER: move to the door please
+BOT: CALL: goto door
+
+USER: please over to the window
+BOT: CALL: goto window
+
+USER: i need you to head upstairs
+BOT: CALL: climb stairs
+
+USER: can you head to the charging dock
+BOT: CALL: goto charger
+
+USER: stand in the middle please
+BOT: CALL: goto middle
+
+USER: can you go get charged
+BOT: CALL: goto charger
+
+USER: please go back to the start
+BOT: CALL: goto start
+
+USER: i want you to go to the door
+BOT: CALL: goto door
+
+USER: i want you to go charge
+BOT: CALL: goto charger
+
+USER: i need you to over to the window
+BOT: CALL: goto window
+
+USER: could you go up the stairs
+BOT: CALL: climb stairs
+
+USER: robot, head to the closest corner
+BOT: CALL: goto near_corner
+
+USER: now move to the south wall
+BOT: CALL: goto south
+
+USER: now head to the charging dock
+BOT: CALL: goto charger
+
+USER: walk up the steps please
+BOT: CALL: climb stairs
+
+USER: i want you to go west
+BOT: CALL: goto west
+
+USER: climb the stairs
+BOT: CALL: climb stairs
+
+USER: could you return to the charger
+BOT: CALL: goto charger
+
+USER: go to the middle
+BOT: CALL: goto middle
+
+USER: can you stand in the middle
+BOT: CALL: goto middle
+
+USER: thanks
+BOT: you're welcome!
+
+USER: i want you to go up
+BOT: CALL: goto north
+
+USER: robot, go to the far corner
+BOT: CALL: goto far_corner
+
+USER: walk to the window
+BOT: CALL: goto window
+
+USER: i want you to head back to where you started
+BOT: CALL: goto start
+
+USER: would you move to the south wall
+BOT: CALL: goto south
+
+USER: please walk to the opposite corner
+BOT: CALL: goto far_corner
+
+USER: please head to the center of the room
+BOT: CALL: goto middle
+
+USER: now go charge
+BOT: CALL: goto charger
+
+USER: would you go west
+BOT: CALL: goto west
+
+USER: i want you to move to the door
+BOT: CALL: goto door
+
+USER: head north
+BOT: CALL: goto north
+
+USER: can you move to the south wall
+BOT: CALL: goto south
+
+USER: would you dock at the charger
+BOT: CALL: goto charger
+
+USER: now go get charged
+BOT: CALL: goto charger
+
+USER: what can you do
+BOT: i can go places you name, and climb the stairs.
+
+USER: could you go to the other side
+BOT: CALL: goto other_side
+
+USER: robot, over to the window
+BOT: CALL: goto window
+
+USER: would you go north
+BOT: CALL: goto north
+
+USER: robot, go back to the start
+BOT: CALL: goto start
+
+USER: go to the centre please
+BOT: CALL: goto middle
+
+USER: would you get to the other end
+BOT: CALL: goto other_side
+
+USER: approach the table please
+BOT: CALL: goto table
+
+USER: can you head south
+BOT: CALL: goto south
+
+USER: please go north
+BOT: CALL: goto north
+
+USER: i want you to head to the center of the room
+BOT: CALL: goto middle
+
+USER: can you go east
+BOT: CALL: goto east
+
+USER: would you go charge
+BOT: CALL: goto charger
+
+USER: robot, walk over to the table
+BOT: CALL: goto table
+
+USER: i need you to return home
+BOT: CALL: goto start
+
+USER: can you go to the middle
+BOT: CALL: goto middle
+
+USER: go left please
+BOT: CALL: goto west
+
+USER: could you walk up the steps
+BOT: CALL: climb stairs
+
+USER: i want you to go up to the next floor
+BOT: CALL: climb stairs
+
+USER: go to the door
+BOT: CALL: goto door
+
+USER: head to the closest corner
+BOT: CALL: goto near_corner
+
+USER: could you return home
+BOT: CALL: goto start
+
+USER: stand in the middle
+BOT: CALL: goto middle
+
+USER: please go east
+BOT: CALL: goto east
+
+USER: now walk to the opposite corner
+BOT: CALL: goto far_corner
+
+USER: would you move to the center
+BOT: CALL: goto middle
+
+USER: would you head north
+BOT: CALL: goto north
+
+USER: i need you to go back home
+BOT: CALL: goto start
+
+USER: would you go to the charger
+BOT: CALL: goto charger
+
+USER: now move to the west wall
+BOT: CALL: goto west
+
+USER: would you walk across the room
+BOT: CALL: goto other_side
+
+USER: i need you to go to the middle
+BOT: CALL: goto middle
+
+USER: could you walk over to the table
+BOT: CALL: goto table
+
+USER: i need you to take the robot up the stairs
+BOT: CALL: climb stairs
+
+USER: could you go east
+BOT: CALL: goto east
+
+USER: robot, head to the far side
+BOT: CALL: goto other_side
+
+USER: would you go back home
+BOT: CALL: goto start
+
+USER: can you what's your name
+BOT: i'm the robot.
+
+USER: can you go to the door
+BOT: CALL: goto door
+
+USER: now head to the closest corner
+BOT: CALL: goto near_corner
+
+USER: head to the far side
+BOT: CALL: goto other_side
+
+USER: now get to the table
+BOT: CALL: goto table
+
+USER: could you go west
+BOT: CALL: goto west
+
+USER: would you head to the charging dock
+BOT: CALL: goto charger
+
+USER: over to the window
+BOT: CALL: goto window
+
+USER: would you return home
+BOT: CALL: goto start
+
+USER: i need you to head east
+BOT: CALL: goto east
+
+USER: please what can you do
+BOT: i can go places you name, and climb the stairs.
+
+USER: i want you to return to the charger
+BOT: CALL: goto charger
+
+USER: please approach the table
+BOT: CALL: goto table
+
+USER: i need you to go left
+BOT: CALL: goto west
+
+USER: can you walk to the corner
+BOT: CALL: goto near_corner
+
+USER: head to the table please
+BOT: CALL: goto table
+
+USER: please head upstairs
+BOT: CALL: climb stairs
+
+USER: could you go to the door
+BOT: CALL: goto door
+
+USER: move to the south wall
+BOT: CALL: goto south
+
+USER: could you ascend the staircase
+BOT: CALL: climb stairs
+
+USER: would you head east
+BOT: CALL: goto east
+
+USER: i want you to ascend the staircase
+BOT: CALL: climb stairs
+
+USER: robot, walk to the corner
+BOT: CALL: goto near_corner
+
+USER: would you return to the charger
+BOT: CALL: goto charger
+
+USER: go to the far corner
+BOT: CALL: goto far_corner
+
+USER: robot, climb up
+BOT: CALL: climb stairs
+
+USER: can you go to the centre
+BOT: CALL: goto middle
+
+USER: please go to the table
+BOT: CALL: goto table
+
+USER: please get to the other corner
+BOT: CALL: goto far_corner
+
+USER: robot, get to the other end
+BOT: CALL: goto other_side
+
+USER: i need you to get to the table
+BOT: CALL: goto table
+
+USER: i want you to over to the window
+BOT: CALL: goto window
+
+USER: robot, go to the other side
+BOT: CALL: goto other_side
+
+USER: can you go back home
+BOT: CALL: goto start
+
+USER: would you head south
+BOT: CALL: goto south
+
+USER: robot, go to the table
+BOT: CALL: goto table
+
+USER: head to the closest corner please
+BOT: CALL: goto near_corner
+
+USER: can you walk to the window
+BOT: CALL: goto window
+
+USER: now walk to the window
+BOT: CALL: goto window
+
+USER: walk across the room
+BOT: CALL: goto other_side
+
+USER: please go to the other side
+BOT: CALL: goto other_side
+
+USER: robot, walk up the steps
+BOT: CALL: climb stairs
+
+USER: i want you to head north
+BOT: CALL: goto north
+
+USER: can you head east
+BOT: CALL: goto east
+
+USER: i need you to move to the door
+BOT: CALL: goto door
+
+USER: now approach the table
+BOT: CALL: goto table
+
+USER: please hello there
+BOT: hi!
+
+USER: now head upstairs
+BOT: CALL: climb stairs
+
+USER: go to the charger please
+BOT: CALL: goto charger
+
+USER: walk to the corner please
+BOT: CALL: goto near_corner
+
+USER: now go left
+BOT: CALL: goto west
+
+USER: i want you to take the stairs up
+BOT: CALL: climb stairs
+
+USER: i need you to go south
+BOT: CALL: goto south
+
+USER: can you head west
+BOT: CALL: goto west
+
+USER: could you go to the centre
+BOT: CALL: goto middle
+
+USER: could you how are you
+BOT: i'm good, thanks!
+
+USER: cross the room please
+BOT: CALL: goto other_side
+
+USER: can you head to the far side
+BOT: CALL: goto other_side
+
+USER: can you approach the table
+BOT: CALL: goto table
+
+USER: please go west
+BOT: CALL: goto west
+
+USER: i need you to approach the door
+BOT: CALL: goto door
+
+USER: go west
+BOT: CALL: goto west
+
+USER: now go up to the next floor
+BOT: CALL: climb stairs
+
+USER: could you climb up
+BOT: CALL: climb stairs
+
+USER: robot, go south
+BOT: CALL: goto south
+
+USER: i need you to head north
+BOT: CALL: goto north
+
+USER: i need you to climb the stairs
+BOT: CALL: climb stairs
+
+USER: would you return to base
+BOT: CALL: goto start
+
+USER: would you go east
+BOT: CALL: goto east
+
+USER: ascend the staircase please
+BOT: CALL: climb stairs
+
+USER: now head to the far side
+BOT: CALL: goto other_side
+
+USER: can you move to the east wall
+BOT: CALL: goto east
+
+USER: can you go to the table
+BOT: CALL: goto table
+
+USER: go to the table
+BOT: CALL: goto table
+
+USER: head back to where you started please
+BOT: CALL: goto start
+
+USER: go up to the next floor please
+BOT: CALL: climb stairs
+
+USER: robot, head east
+BOT: CALL: goto east
+
+USER: i want you to go up the stairs
+BOT: CALL: climb stairs
+
+USER: i want you to thanks
+BOT: you're welcome!
+
+USER: go get charged
+BOT: CALL: goto charger
+
+USER: can you head to the table
+BOT: CALL: goto table
+
+USER: now up the stairs
+BOT: CALL: climb stairs
+
+USER: i want you to head east
+BOT: CALL: goto east
+
+USER: robot, go charge
+BOT: CALL: goto charger
+
+USER: head to the table
+BOT: CALL: goto table
+
+USER: can you go to the window
+BOT: CALL: goto window
+
+USER: now go west
+BOT: CALL: goto west
+
+USER: i want you to head to the window
+BOT: CALL: goto window
+
+USER: would you go to the far corner
+BOT: CALL: goto far_corner
+
+USER: i want you to go to the nearest corner
+BOT: CALL: goto near_corner
+
+USER: i want you to get to the other end
+BOT: CALL: goto other_side
+
+USER: robot, walk to the opposite corner
+BOT: CALL: goto far_corner
+
+USER: i need you to move to the center
+BOT: CALL: goto middle
+
+USER: now head east
+BOT: CALL: goto east
+
+USER: could you walk to the corner
+BOT: CALL: goto near_corner
+
+USER: could you stand in the middle
+BOT: CALL: goto middle
+
+USER: i want you to tell me a story
+BOT: once, a small robot learned to walk.
+
+USER: walk over to the table please
+BOT: CALL: goto table
+
+USER: now get to the other end
+BOT: CALL: goto other_side
+
+USER: robot, return to the charger
+BOT: CALL: goto charger
+
+USER: can you go left
+BOT: CALL: goto west
+
+USER: i need you to head to the farthest corner
+BOT: CALL: goto far_corner
+
+USER: robot, up the stairs
+BOT: CALL: climb stairs
+
+USER: take the stairs up
+BOT: CALL: climb stairs
+
+USER: please take the stairs up
+BOT: CALL: climb stairs
+
+USER: would you go up the stairs
+BOT: CALL: climb stairs
+
+USER: please thanks
+BOT: you're welcome!
+
+USER: would you go up to the next floor
+BOT: CALL: climb stairs
+
+USER: i need you to walk up the steps
+BOT: CALL: climb stairs
+
+USER: go to the table please
+BOT: CALL: goto table
+
+USER: walk to the opposite corner
+BOT: CALL: goto far_corner
+
+USER: head west please
+BOT: CALL: goto west
+
+USER: head west
+BOT: CALL: goto west
+
+USER: i want you to walk to the opposite corner
+BOT: CALL: goto far_corner
+
+USER: i need you to get to the top of the stairs
+BOT: CALL: climb stairs
+
+USER: please walk to the doorway
+BOT: CALL: goto door
+
+USER: please head north
+BOT: CALL: goto north
+
+USER: robot, head to the center of the room
+BOT: CALL: goto middle
+
+USER: would you head to the center of the room
+BOT: CALL: goto middle
+
+USER: please head to the window
+BOT: CALL: goto window
+
+USER: approach the door
+BOT: CALL: goto door
+
+USER: please climb the stairs
+BOT: CALL: climb stairs
+
+USER: can you what can you do
+BOT: i can go places you name, and climb the stairs.
+
+USER: please go to the far corner
+BOT: CALL: goto far_corner
+
+USER: could you approach the table
+BOT: CALL: goto table
+
+USER: could you walk to the window
+BOT: CALL: goto window
+
+USER: please walk up the steps
+BOT: CALL: climb stairs
+
+USER: now go south
+BOT: CALL: goto south
+
+USER: can you get to the other corner
+BOT: CALL: goto far_corner
+
+USER: i want you to what's your name
+BOT: i'm the robot.
+
+USER: i want you to get to the door
+BOT: CALL: goto door
+
+USER: please how are you
+BOT: i'm good, thanks!
+
+USER: i want you to go down
+BOT: CALL: goto south
+
+USER: please dock at the charger
+BOT: CALL: goto charger
+
+USER: get to the top of the stairs
+BOT: CALL: climb stairs
+
+USER: could you what's your name
+BOT: i'm the robot.
+
+USER: walk up the steps
+BOT: CALL: climb stairs
+
+USER: could you dock at the charger
+BOT: CALL: goto charger
+
+USER: i want you to walk across the room
+BOT: CALL: goto other_side
+
+USER: robot, head to the farthest corner
+BOT: CALL: goto far_corner
+
+USER: head to the far side please
+BOT: CALL: goto other_side
+
+USER: please cross the room
+BOT: CALL: goto other_side
+
+USER: move to the west wall please
+BOT: CALL: goto west
+
+USER: can you head back to where you started
+BOT: CALL: goto start
+
+USER: now cross the room
+BOT: CALL: goto other_side
+
+USER: would you up the stairs
+BOT: CALL: climb stairs
+
+USER: can you thanks
+BOT: you're welcome!
+
+USER: please move to the door
+BOT: CALL: goto door
+
+USER: could you get to the table
+BOT: CALL: goto table
+
+USER: head to the farthest corner please
+BOT: CALL: goto far_corner
+
+USER: return home
+BOT: CALL: goto start
+
+USER: go up the stairs please
+BOT: CALL: climb stairs
+
+USER: now get to the top of the stairs
+BOT: CALL: climb stairs
+
+USER: please head to the closest corner
+BOT: CALL: goto near_corner
+
+USER: please get to the other end
+BOT: CALL: goto other_side
+
+USER: can you ascend the staircase
+BOT: CALL: climb stairs
+
+USER: now move to the east wall
+BOT: CALL: goto east
+
+USER: return to the charger
+BOT: CALL: goto charger
+
+USER: now take the robot up the stairs
+BOT: CALL: climb stairs
+
+USER: can you return home
+BOT: CALL: goto start
+
+USER: robot, go to the centre
+BOT: CALL: goto middle
+
+USER: now return home
+BOT: CALL: goto start
+
+USER: please stand in the middle
+BOT: CALL: goto middle
+
+USER: could you tell me a story
+BOT: once, a small robot learned to walk.
+
+USER: robot, take the stairs up
+BOT: CALL: climb stairs
+
+USER: would you head to the window
+BOT: CALL: goto window
+
+USER: i need you to stand in the middle
+BOT: CALL: goto middle
+
+USER: would you get to the door
+BOT: CALL: goto door
+
+USER: now move to the door
+BOT: CALL: goto door
+
+USER: could you over to the window
+BOT: CALL: goto window
+
+USER: would you climb the stairs
+BOT: CALL: climb stairs
+
+USER: i want you to go north
+BOT: CALL: goto north
+
+USER: go up the stairs
+BOT: CALL: climb stairs
+
+USER: now walk to the corner
+BOT: CALL: goto near_corner
+
+USER: would you go get charged
+BOT: CALL: goto charger
+
+USER: i need you to head back to where you started
+BOT: CALL: goto start
+
+USER: i want you to head to the far side
+BOT: CALL: goto other_side
+
+USER: i need you to head west
+BOT: CALL: goto west
+
+USER: please go left
+BOT: CALL: goto west
+
+USER: go charge
+BOT: CALL: goto charger
+
+USER: i need you to go up
+BOT: CALL: goto north
+
+USER: please return to base
+BOT: CALL: goto start
+
+USER: can you go down
+BOT: CALL: goto south
+
+USER: can you walk to the doorway
+BOT: CALL: goto door
+
+USER: can you head upstairs
+BOT: CALL: climb stairs
+
+USER: please go back home
+BOT: CALL: goto start
+
+USER: robot, go down
+BOT: CALL: goto south
+
+USER: robot, go up
+BOT: CALL: goto north
+
+USER: return home please
+BOT: CALL: goto start
+
+USER: would you walk to the opposite corner
+BOT: CALL: goto far_corner
+
+USER: robot, go to the middle
+BOT: CALL: goto middle
+
+USER: i want you to get to the table
+BOT: CALL: goto table
+
+USER: i want you to go right
+BOT: CALL: goto east
+
+USER: would you get to the other corner
+BOT: CALL: goto far_corner
+
+USER: could you go left
+BOT: CALL: goto west
+
+USER: robot, approach the table
+BOT: CALL: goto table
+
+USER: move to the south wall please
+BOT: CALL: goto south
+
+USER: can you get to the table
+BOT: CALL: goto table
+
+USER: go to the other side please
+BOT: CALL: goto other_side
+
+USER: head to the charging dock
+BOT: CALL: goto charger
+
+USER: i want you to head to the farthest corner
+BOT: CALL: goto far_corner
+
+USER: i need you to go to the other side
+BOT: CALL: goto other_side
+
+USER: could you go to the nearest corner
+BOT: CALL: goto near_corner
+
+USER: robot, move to the east wall
+BOT: CALL: goto east
+
+USER: would you go to the window
+BOT: CALL: goto window
+
+USER: now go to the far corner
+BOT: CALL: goto far_corner
+
+USER: i need you to go to the window
+BOT: CALL: goto window
+
+USER: now head back to where you started
+BOT: CALL: goto start
+
+USER: could you move to the door
+BOT: CALL: goto door
+
+USER: can you head to the farthest corner
+BOT: CALL: goto far_corner
+
+USER: now head to the table
+BOT: CALL: goto table
+
+USER: can you move to the west wall
+BOT: CALL: goto west
+
+USER: head east
+BOT: CALL: goto east
+
+USER: i want you to stand in the middle
+BOT: CALL: goto middle
+
+USER: now return to base
+BOT: CALL: goto start
+
+USER: can you how are you
+BOT: i'm good, thanks!
+
+USER: robot, walk to the doorway
+BOT: CALL: goto door
+
+USER: robot, head north
+BOT: CALL: goto north
+
+USER: please go right
+BOT: CALL: goto east
+
+USER: go to the nearest corner
+BOT: CALL: goto near_corner
+
+USER: could you go back to the start
+BOT: CALL: goto start
+
+USER: robot, walk to the window
+BOT: CALL: goto window
+
+USER: i need you to walk to the doorway
+BOT: CALL: goto door
+
+USER: return to the charger please
+BOT: CALL: goto charger
+
+USER: robot, head south
+BOT: CALL: goto south
+
+USER: i need you to move to the east wall
+BOT: CALL: goto east
+
+USER: climb up
+BOT: CALL: climb stairs
+
+USER: i need you to head to the far side
+BOT: CALL: goto other_side
+
+USER: can you climb the stairs
+BOT: CALL: climb stairs
+
+USER: get to the door please
+BOT: CALL: goto door
+
+USER: now go north
+BOT: CALL: goto north
+
+USER: go to the middle please
+BOT: CALL: goto middle
+
+USER: i want you to how are you
+BOT: i'm good, thanks!
+
+USER: i need you to dock at the charger
+BOT: CALL: goto charger
+
+USER: robot, go west
+BOT: CALL: goto west
+
+USER: would you go to the centre
+BOT: CALL: goto middle
+
+USER: can you walk across the room
+BOT: CALL: goto other_side
+
+USER: could you climb the stairs
+BOT: CALL: climb stairs
+
+USER: would you go to the table
+BOT: CALL: goto table
+
+USER: can you cross the room
+BOT: CALL: goto other_side
+
+USER: head to the door
+BOT: CALL: goto door
+
+USER: please what's your name
+BOT: i'm the robot.
+
+USER: can you go north
+BOT: CALL: goto north
+
+USER: get to the other corner
+BOT: CALL: goto far_corner
+
+USER: robot, move to the door
+BOT: CALL: goto door
+
+USER: can you move to the door
+BOT: CALL: goto door
+
+USER: would you walk up the steps
+BOT: CALL: climb stairs
+
+USER: robot, go left
+BOT: CALL: goto west
+
+USER: could you go to the table
+BOT: CALL: goto table
+
+USER: please walk across the room
+BOT: CALL: goto other_side
+
+USER: go to the nearest corner please
+BOT: CALL: goto near_corner
+
+USER: please go up
+BOT: CALL: goto north
+
+USER: i want you to approach the table
+BOT: CALL: goto table
+
+USER: i want you to head south
+BOT: CALL: goto south
+
+USER: can you go up
+BOT: CALL: goto north
+
+USER: ascend the staircase
+BOT: CALL: climb stairs
+
+USER: i need you to get to the other end
+BOT: CALL: goto other_side
+
+USER: robot, go back home
+BOT: CALL: goto start
+
+USER: now go up
+BOT: CALL: goto north
+
+USER: i want you to walk over to the table
+BOT: CALL: goto table
+
+USER: now go to the other side
+BOT: CALL: goto other_side
+
+USER: i need you to get to the other corner
+BOT: CALL: goto far_corner
+
+USER: can you go west
+BOT: CALL: goto west
+
+USER: could you go up to the next floor
+BOT: CALL: climb stairs
+
+USER: now go to the window
+BOT: CALL: goto window
+
+USER: please go up to the next floor
+BOT: CALL: climb stairs
+
+USER: head east please
+BOT: CALL: goto east
+
+USER: i need you to head south
+BOT: CALL: goto south
+
+USER: robot, move to the center
+BOT: CALL: goto middle
+
+USER: head north please
+BOT: CALL: goto north
+
+USER: could you take the stairs up
+BOT: CALL: climb stairs
+
+USER: can you get to the top of the stairs
+BOT: CALL: climb stairs
+
+USER: robot, get to the table
+BOT: CALL: goto table
+
+USER: go back to the start
+BOT: CALL: goto start
+
+USER: now head to the door
+BOT: CALL: goto door
+
+USER: would you walk over to the table
+BOT: CALL: goto table
+
+USER: would you head to the table
+BOT: CALL: goto table
+
+USER: can you take the stairs up
+BOT: CALL: climb stairs
+
+USER: head upstairs please
+BOT: CALL: climb stairs
+
+USER: could you go down
+BOT: CALL: goto south
+
+USER: would you head to the closest corner
+BOT: CALL: goto near_corner
+
+USER: would you move to the east wall
+BOT: CALL: goto east
+
+USER: i need you to go east
+BOT: CALL: goto east
+
+USER: can you head to the door
+BOT: CALL: goto door
+
+USER: please move to the east wall
+BOT: CALL: goto east
+
+USER: would you go right
+BOT: CALL: goto east
+
+USER: take the stairs up please
+BOT: CALL: climb stairs
+
+USER: how are you
+BOT: i'm good, thanks!
+
+USER: go north please
+BOT: CALL: goto north
+
+USER: go south please
+BOT: CALL: goto south
+
+USER: now ascend the staircase
+BOT: CALL: climb stairs
+
+USER: i want you to go to the window
+BOT: CALL: goto window
+
+USER: would you approach the door
+BOT: CALL: goto door
+
+USER: i want you to hello there
+BOT: hi!
+
+USER: i need you to move to the west wall
+BOT: CALL: goto west
+
+USER: now move to the center
+BOT: CALL: goto middle
+
+USER: go right please
+BOT: CALL: goto east
+
+USER: i want you to go to the table
+BOT: CALL: goto table
+
+USER: walk to the corner
+BOT: CALL: goto near_corner
+
+USER: robot, go to the window
+BOT: CALL: goto window
+
+USER: would you go to the door
+BOT: CALL: goto door
+
+USER: go charge please
+BOT: CALL: goto charger
+
+USER: now climb the stairs
+BOT: CALL: climb stairs
+
+USER: i need you to walk to the window
+BOT: CALL: goto window
+
+USER: i want you to head to the table
+BOT: CALL: goto table
+
+USER: could you head to the farthest corner
+BOT: CALL: goto far_corner
+
+USER: can you go right
+BOT: CALL: goto east
+
+USER: i need you to go back to the start
+BOT: CALL: goto start
+
+USER: i need you to go to the door
+BOT: CALL: goto door
+
+USER: can you walk to the opposite corner
+BOT: CALL: goto far_corner
+
+USER: i want you to climb up
+BOT: CALL: climb stairs
+
+USER: robot, go to the nearest corner
+BOT: CALL: goto near_corner
+
+USER: i want you to return home
+BOT: CALL: goto start
+
+USER: please head to the far side
+BOT: CALL: goto other_side
+
+USER: please return to the charger
+BOT: CALL: goto charger
+
+USER: could you head south
+BOT: CALL: goto south
+
+USER: would you stand in the middle
+BOT: CALL: goto middle
+
+USER: could you move to the south wall
+BOT: CALL: goto south
+
+USER: go to the window
+BOT: CALL: goto window
+
+USER: please walk to the window
+BOT: CALL: goto window
+
+USER: i want you to return to base
+BOT: CALL: goto start
+
+USER: can you return to the charger
+BOT: CALL: goto charger
+
+USER: return to base please
+BOT: CALL: goto start
+
+USER: head to the center of the room
+BOT: CALL: goto middle
+
+USER: now go right
+BOT: CALL: goto east
+
+USER: go west please
+BOT: CALL: goto west
+
+USER: would you head upstairs
+BOT: CALL: climb stairs
+
+USER: could you get to the door
+BOT: CALL: goto door
+
+USER: could you walk to the doorway
+BOT: CALL: goto door
+
+USER: please take the robot up the stairs
+BOT: CALL: climb stairs
+
+USER: go up to the next floor
+BOT: CALL: climb stairs
+
+USER: walk across the room please
+BOT: CALL: goto other_side
+
+USER: would you move to the west wall
+BOT: CALL: goto west
+
+USER: go east please
+BOT: CALL: goto east
+
+USER: could you head upstairs
+BOT: CALL: climb stairs
+
+USER: please head to the table
+BOT: CALL: goto table
+
+USER: could you head to the table
+BOT: CALL: goto table
+
+USER: i need you to walk over to the table
+BOT: CALL: goto table
+
+USER: head to the charging dock please
+BOT: CALL: goto charger
+
+USER: walk to the window please
+BOT: CALL: goto window
+
+USER: would you go south
+BOT: CALL: goto south
+
+USER: i want you to go to the far corner
+BOT: CALL: goto far_corner
+
+USER: i want you to what can you do
+BOT: i can go places you name, and climb the stairs.
+
+USER: go down
+BOT: CALL: goto south
+
+USER: i need you to go west
+BOT: CALL: goto west
+
+USER: robot, cross the room
+BOT: CALL: goto other_side
+
+USER: i want you to head to the charging dock
+BOT: CALL: goto charger
+
+USER: please move to the south wall
+BOT: CALL: goto south
+
+USER: i need you to go right
+BOT: CALL: goto east
+
+USER: go down please
+BOT: CALL: goto south
+
+USER: i need you to approach the table
+BOT: CALL: goto table
+
+USER: could you head north
+BOT: CALL: goto north
+
+USER: head to the farthest corner
+BOT: CALL: goto far_corner
+
+USER: move to the north wall
+BOT: CALL: goto north
+
+USER: head to the door please
+BOT: CALL: goto door
+
+USER: i need you to head to the charging dock
+BOT: CALL: goto charger
+
+USER: i want you to move to the north wall
+BOT: CALL: goto north
+
+USER: i need you to go get charged
+BOT: CALL: goto charger
+
+USER: please go to the door
+BOT: CALL: goto door
+
+USER: please return home
+BOT: CALL: goto start
+
+USER: head back to where you started
+BOT: CALL: goto start
+
+USER: go to the far corner please
+BOT: CALL: goto far_corner
+
+USER: can you climb up
+BOT: CALL: climb stairs
+
+USER: could you take the robot up the stairs
+BOT: CALL: climb stairs
+
+USER: i need you to cross the room
+BOT: CALL: goto other_side
+
+USER: now head north
+BOT: CALL: goto north
+
+USER: robot, approach the door
+BOT: CALL: goto door
+
+USER: i want you to walk to the window
+BOT: CALL: goto window
+
+USER: go to the window please
+BOT: CALL: goto window
+
+USER: please go south
+BOT: CALL: goto south
+
+USER: robot, head to the table
+BOT: CALL: goto table
+
+USER: i want you to get to the top of the stairs
+BOT: CALL: climb stairs
+
+USER: could you walk to the opposite corner
+BOT: CALL: goto far_corner
+
+USER: would you walk to the window
+BOT: CALL: goto window
+
+USER: please head to the farthest corner
+BOT: CALL: goto far_corner
+
+USER: robot, return home
+BOT: CALL: goto start
+
+USER: now go east
+BOT: CALL: goto east
+
+USER: please go up the stairs
+BOT: CALL: climb stairs
+
+USER: move to the east wall
+BOT: CALL: goto east
+
+USER: i need you to head to the center of the room
+BOT: CALL: goto middle
+
+USER: robot, take the robot up the stairs
+BOT: CALL: climb stairs
+
+USER: i want you to climb the stairs
+BOT: CALL: climb stairs
+
+USER: please move to the north wall
+BOT: CALL: goto north
+
+USER: could you get to the top of the stairs
+BOT: CALL: climb stairs
+
+USER: now go to the charger
+BOT: CALL: goto charger
+
+USER: could you return to base
+BOT: CALL: goto start
+
+USER: could you cross the room
+BOT: CALL: goto other_side
+
+USER: please tell me a story
+BOT: once, a small robot learned to walk.
+
+USER: robot, move to the north wall
+BOT: CALL: goto north
+
+USER: would you approach the table
+BOT: CALL: goto table
+
+USER: robot, go right
+BOT: CALL: goto east
+
+USER: robot, go east
+BOT: CALL: goto east
+
+USER: could you go to the far corner
+BOT: CALL: goto far_corner
+
+USER: i want you to go to the other side
+BOT: CALL: goto other_side
+
+USER: can you go to the nearest corner
+BOT: CALL: goto near_corner
+
+USER: could you up the stairs
+BOT: CALL: climb stairs
+
+USER: could you go up
+BOT: CALL: goto north
+
+USER: could you walk across the room
+BOT: CALL: goto other_side
+
+USER: i need you to walk to the opposite corner
+BOT: CALL: goto far_corner
+
+USER: hello there
+BOT: hi!
+
+USER: robot, go up to the next floor
+BOT: CALL: climb stairs
+
+USER: please up the stairs
+BOT: CALL: climb stairs
+
+USER: dock at the charger please
+BOT: CALL: goto charger
+
+USER: get to the door
+BOT: CALL: goto door
+
+USER: now go down
+BOT: CALL: goto south
+
+USER: robot, go north
+BOT: CALL: goto north
+
+USER: now over to the window
+BOT: CALL: goto window
+
+USER: could you head east
+BOT: CALL: goto east
+
+USER: take the robot up the stairs please
+BOT: CALL: climb stairs
+
+USER: could you approach the door
+BOT: CALL: goto door
+
+USER: i need you to return to the charger
+BOT: CALL: goto charger
+
+USER: can you approach the door
+BOT: CALL: goto door
+
+USER: now go back home
+BOT: CALL: goto start
+
+USER: could you go to the window
+BOT: CALL: goto window
+
+USER: head south please
+BOT: CALL: goto south
+
+USER: now go to the nearest corner
+BOT: CALL: goto near_corner
+
+USER: i need you to walk across the room
+BOT: CALL: goto other_side
+
+USER: dock at the charger
+BOT: CALL: goto charger
+
+USER: i want you to go to the centre
+BOT: CALL: goto middle
+
+USER: go back to the start please
+BOT: CALL: goto start
+
+USER: could you head back to where you started
+BOT: CALL: goto start
+
+USER: robot, go to the charger
+BOT: CALL: goto charger
+
+USER: please ascend the staircase
+BOT: CALL: climb stairs
+
+USER: move to the center
+BOT: CALL: goto middle
+
+USER: i want you to go to the middle
+BOT: CALL: goto middle

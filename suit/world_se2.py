@@ -29,9 +29,15 @@ def _rot(bx, by, yaw):
 
 
 class RobotSuit:
-    def __init__(self, w=9, h=9, depth=3, n_handles=8, seed=0, obstacles=True):
+    LANDMARK_NAMES = ["stairs", "door", "table", "window", "charger"]
+
+    def __init__(self, w=9, h=9, depth=3, n_handles=8, seed=0, obstacles=True, landmarks=False):
         self.w, self.h, self.depth, self.seed = w, h, depth, seed
         self.rng = np.random.default_rng(seed)
+        self.landmarks = {}          # name -> cell (from LiDAR + a label; e.g. "stairs", "door")
+        self.stairs_height = 3       # how many step-ups the stairs take
+        self.level = 0               # which floor the robot is on (climbing stairs raises it)
+        self._want_landmarks = landmarks
 
         # --- opaque command wiring: each handle is secretly one of these primitives ---
         prim = [("move", (1, 0, 0)),    # forward     (+1 in body-x)
@@ -59,6 +65,12 @@ class RobotSuit:
                 self.occ[x, y, :ht] = True
         # where the robot's body can stand: floor cells with a clear height column
         self.free = np.array([[not self.occ[x, y, :].any() for y in range(h)] for x in range(w)])
+        if self._want_landmarks:
+            cells = [(x, y) for x in range(w) for y in range(h) if self.free[x, y]]
+            self.rng.shuffle(cells)
+            for nm in self.LANDMARK_NAMES:
+                if cells:
+                    self.landmarks[nm] = cells.pop()
         self.reset()
 
     # ---------------------------------------------------------------- the socket
