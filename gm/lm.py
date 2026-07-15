@@ -67,25 +67,46 @@ class CharLM(nn.Module):
             loss = F.cross_entropy(logits.view(-1, self.vocab), targets.view(-1))
         return logits, loss
 
-    def gen_ids(self, ids, n, temp=0.4, top_k=40, ban=None, stop=None):
+    def gen_ids(self, ids, n, temp=0.4, top_k=40, ban=None, stop=None,
+                rep_penalty=1.0, no_repeat=0):
         """Backend-agnostic interface used by chat.py: take a list of token ids, return ONLY the
         newly generated ids. (The NumPy model in gm/lm_np.py exposes the same method.)
         `stop`: a token id (the learned EOS ■) that ends generation early — most replies are short,
         so this avoids grinding out the full `n` tokens only to throw most away."""
         dev = next(self.parameters()).device
         out = self.generate(torch.tensor([ids], device=dev), n, temp=temp, top_k=top_k,
-                            ban=ban, stop=stop)[0].tolist()
+                            ban=ban, stop=stop, rep_penalty=rep_penalty, no_repeat=no_repeat,
+                            gen_from=len(ids))[0].tolist()
         return out[len(ids):]
 
     @torch.no_grad()
-    def generate(self, idx, n, temp=0.8, top_k=40, ban=None, stop=None):
+    def generate(self, idx, n, temp=0.8, top_k=40, ban=None, stop=None,
+                 rep_penalty=1.0, no_repeat=0, gen_from=None):
+        # rep_penalty>1 down-weights tokens already produced; no_repeat>0 forbids repeating any
+        # n-gram of that size. Both act ONLY on tokens generated in THIS call (from gen_from), so the
+        # prompt is never penalised. Off by default (1.0 / 0) -- probes and training are unchanged;
+        # chat turns them on, which is what kills the "i'm sorry. i'm sorry. i'm sorry" degeneration.
         self.eval()
+        start = idx.size(1) if gen_from is None else gen_from
         for _ in range(n):
             cond = idx[:, -self.block_size:]
             logits, _ = self(cond)
             logits = logits[:, -1, :] / max(temp, 1e-6)
             if ban:
                 logits[:, ban] = -float("inf")     # never emit these tokens (e.g. <unk>)
+            if (rep_penalty != 1.0 or no_repeat) and idx.size(1) > start:
+                for b in range(idx.size(0)):
+                    gen = idx[b, start:].tolist()
+                    if rep_penalty != 1.0:
+                        for t in set(gen):
+                            lo = logits[b, t]
+                            logits[b, t] = lo / rep_penalty if lo > 0 else lo * rep_penalty
+                    if no_repeat and len(gen) >= no_repeat - 1:
+                        prefix = tuple(gen[-(no_repeat - 1):]) if no_repeat > 1 else ()
+                        seq = idx[b].tolist()
+                        for i in range(len(seq) - no_repeat + 1):
+                            if tuple(seq[i:i + no_repeat - 1]) == prefix:
+                                logits[b, seq[i + no_repeat - 1]] = -float("inf")
             if top_k:
                 v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
                 logits[logits < v[:, [-1]]] = -float("inf")

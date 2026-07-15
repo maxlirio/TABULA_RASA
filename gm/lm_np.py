@@ -112,7 +112,8 @@ class NpModel:
         h = self._forward(ids)[-1]                                   # (E,)
         return self.w["tok.weight"] @ h + self.w["head.bias"]        # (V,) tied head
 
-    def gen_ids(self, ids, n, temp=0.4, top_k=40, ban=None):
+    def gen_ids(self, ids, n, temp=0.4, top_k=40, ban=None, stop=None,
+                rep_penalty=1.0, no_repeat=0):
         ids = list(ids)
         new, rng = [], np.random
         for _ in range(n):

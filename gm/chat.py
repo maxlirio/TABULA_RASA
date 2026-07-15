@@ -439,8 +439,12 @@ class Chat:
         intact, so a CALL line can be parsed). Backend-agnostic via model.gen_ids."""
         model, coder = self.voices[self.voice]
         ids = coder.encode(seed) or [coder.stoi.get("\n", 0)]
+        # rep_penalty + no-repeat-trigram stop the degenerate loops a tiny LM falls into ("i'm sorry.
+        # i'm sorry. i'm sorry"). greedy tool-decisions (top_k==1) skip it so the CALL token is never
+        # perturbed; only the natural-language replies get the guard.
+        guard = {} if top_k == 1 else {"rep_penalty": 1.3, "no_repeat": 3}
         new = model.gen_ids(ids, max_new, temp=temp, top_k=top_k, ban=self._ban(coder),
-                            stop=coder.stoi.get("■"))   # stop at learned EOS -> big speedup
+                            stop=coder.stoi.get("■"), **guard)   # stop at learned EOS -> big speedup
         return coder.decode(new)
 
     def _clean(self, gen, greet=False):

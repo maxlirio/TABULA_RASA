@@ -28,7 +28,12 @@ def main():
     from gm.lm import load
     # optional path, so you can talk to a specific brain without shuffling 1GB files around:
     #     python3 talk.py apollo_280m.pt
-    apollo = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "apollo.pt")
+    # default to run #3 (better stories + tools) when it's present, else the older apollo.pt.
+    if len(sys.argv) > 1:
+        apollo = sys.argv[1]
+    else:
+        apollo = next((os.path.join(HERE, f) for f in ("apollo_run3.pt", "apollo.pt")
+                       if os.path.exists(os.path.join(HERE, f))), os.path.join(HERE, "apollo.pt"))
     if not os.path.exists(apollo):
         print(f"No brain at {apollo}. Train one:  python3 train_lm.py mixed apollo.pt")
         return
