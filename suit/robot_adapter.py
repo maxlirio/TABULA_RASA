@@ -53,11 +53,11 @@ def parse_robot(text):
         if nm in t:
             return f"goto {nm}"
     if "corner" in t:
-        return "goto far_corner" if any(w in t for w in ("far", "other", "opposite")) else "goto near_corner"
+        return "goto far corner" if any(w in t for w in ("far", "other", "opposite")) else "goto near corner"
     if any(w in t for w in ("middle", "center", "centre")):
         return "goto middle"
     if any(w in t for w in ("other side", "across", "far side", "far end")):
-        return "goto other_side"
+        return "goto other side"
     for d in ("north", "south", "east", "west"):
         if f" {d} " in t:
             return f"goto {d}"
@@ -80,15 +80,15 @@ class RouteAdapter:
             return self.landmarks[place]
         W, H = self.nav.shape
         p, cs = self.cur, _corners(self.nav)
-        if place == "far_corner":
+        if place == "far corner":
             k = max(cs, key=lambda k: abs(cs[k][0] - p[0]) + abs(cs[k][1] - p[1]))
             return _nearest_free(self.nav, cs[k])
-        if place == "near_corner":
+        if place == "near corner":
             k = min(cs, key=lambda k: abs(cs[k][0] - p[0]) + abs(cs[k][1] - p[1]))
             return _nearest_free(self.nav, cs[k])
         if place == "middle":
             return _nearest_free(self.nav, (W // 2, H // 2))
-        if place == "other_side":
+        if place == "other side":
             return max(_free_cells(self.nav), key=lambda c: abs(c[0] - p[0]) + abs(c[1] - p[1]))
         if place == "start":
             return self.cur if not hasattr(self, "_home") else self._home
@@ -149,12 +149,13 @@ class RouteAdapter:
             return {"symbolic": None, "cmds": None, "note": "outside the vocabulary"}
         head = sym.split()
         if head[0] == "goto":
-            cell = self.resolve(head[1])
+            place = " ".join(head[1:])                   # place may be multi-word ("far corner")
+            cell = self.resolve(place)
             if cell is None:
-                return {"symbolic": sym, "cmds": None, "note": f"can't place '{head[1]}'"}
+                return {"symbolic": sym, "cmds": None, "note": f"can't place '{place}'"}
             cmds = self.route(cell)
             note = ""
-            if head[1] == "stairs":
+            if place == "stairs":
                 note = "navigates to the stairs; a `climb` skill is a robot-side TODO"
             return {"symbolic": sym, "cmds": cmds, "note": note}
         return {"symbolic": sym, "cmds": [sym], "note": "robot_bridge skill verbatim"}

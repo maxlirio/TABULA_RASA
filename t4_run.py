@@ -91,7 +91,7 @@ print("v5", round(os.path.getsize(corp[0]) / 1e6), "| warm", round(os.path.getsi
 # the skills all over again (that is exactly what went wrong).
 for cmd in (["prep_wiki.py", WIKI_MB], ["prep_tooluse.py"], ["prep_reasoning.py"],
             ["prep_rules.py"], ["prep_reward_design.py"], ["prep_dialogue2.py"],
-            ["prep_stories2.py"], ["prep_solving.py"]):   # generative: fables + problem-solving
+            ["prep_stories2.py"], ["prep_solving.py"], ["prep_robotcmd.py"]):   # + robot commands
     subprocess.run([sys.executable] + cmd, check=False, env=env)   # check=False: one flaky download
     #                                                                shouldn't abort the whole run
 
@@ -151,6 +151,7 @@ append("data/rules/chat.txt", 14)       # 3x = 1.2% and the rules skill DROWNED 
 append("data/dialogue2/chat.txt", 12)        # sentiment chat + COMPLETE template stories (the arc)
 append("data/stories2/chat.txt", 20)         # diverse real fables, now scrubbed of index junk
 append("data/solving/chat.txt", 8)           # generative problem-solving (obstacle -> fitting options)
+append("data/robotcmd/chat.txt", 100)        # english -> robot_bridge command; ~4% (7k unique, x100)
 strip_all_reward_blocks()                    # remove ALL old reward data BEFORE adding the clean set
 append("data/reward_design/chat.txt", 20)    # the proven recipe: ~20%+ exposure is what makes reward
                                              # design stick (4% drowned it in two separate full runs)

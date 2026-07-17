@@ -34,41 +34,56 @@ TARGETS = {
     "goto window":   ["go to the window", "head to the window", "over to the window"],
     "goto charger":  ["go to the charger", "go charge", "return to the charger", "go get charged",
                       "dock at the charger"],
-    "goto far_corner": ["go to the far corner", "walk to the opposite corner", "head to the farthest corner"],
-    "goto near_corner": ["go to the nearest corner", "head to the closest corner", "go to the corner"],
+    "goto far corner": ["go to the far corner", "walk to the opposite corner", "head to the farthest corner"],
+    "goto near corner": ["go to the nearest corner", "head to the closest corner", "go to the corner"],
     "goto middle":   ["go to the middle", "head to the center of the room", "stand in the middle"],
-    "goto other_side": ["go to the other side", "cross the room", "head to the far side", "other end"],
+    "goto other side": ["go to the other side", "cross the room", "head to the far side", "other end"],
     "goto start":    ["go back to the start", "return home", "go back home", "return to base"],
     "goto north":    ["go to the north wall", "head north"],
     "goto south":    ["go to the south wall", "head south"],
     "goto east":     ["go to the east wall", "head east"],
     "goto west":     ["go to the west wall", "head west"],
 }
-WRAP = ["{p}", "please {p}", "can you {p}", "could you {p}", "i want you to {p}", "robot, {p}",
-        "now {p}", "{p} please", "i need you to {p}", "would you {p}"]
+# Compositional wrappers, so the model learns the MAPPING from thousands of UNIQUE surface forms
+# rather than memorising a few hundred repeated ones (the lookup-vs-generalisation trap that sank
+# reward design). prefix x phrasing x suffix multiplies genuine variety.
+PREFIX = ["", "hey ", "ok ", "so ", "alright ", "please ", "can you ", "could you ",
+          "i want you to ", "i need you to ", "would you ", "robot, ", "now "]
+SUFFIX = ["", " please", " now", " for me", " when you get a chance", " thanks", " right now",
+          " ok", " already"]
 # NEGATIVES: chatter that is NOT a command -> the model replies plainly, emits no command
 NEGATIVES = [("hello there", "hi!"), ("how are you", "i'm good, thanks!"),
              ("what's your name", "i'm the robot."), ("thanks", "you're welcome!"),
+             ("what's up", "not much!"), ("good job", "thank you!"),
              ("what can you do", "i can walk to places you name and cross the table.")]
 
 
-def main(seed=0):
+def main(seed=0, cap=7000):
     r = random.Random(seed)
-    out = []
+    pairs = set()
     for target, phrases in TARGETS.items():
         for p in phrases:
-            for w in WRAP:
-                out.append(f"USER: {w.format(p=p)}\nBOT: {target}")
-    for text, reply in NEGATIVES:
-        for w in WRAP[:5]:
-            out.append(f"USER: {w.format(p=text)}\nBOT: {reply}")
+            for pre in PREFIX:
+                for suf in SUFFIX:
+                    text = (pre + p + suf).strip()
+                    text = text[0].upper() + text[1:] if r.random() < 0.15 else text  # some capitalised
+                    pairs.add((text, target))
+    pairs = list(pairs)
+    r.shuffle(pairs)
+    if len(pairs) > cap:
+        pairs = pairs[:cap]
+    out = [f"USER: {t}\nBOT: {c}" for t, c in pairs]
+    for text, reply in NEGATIVES:                              # negatives across the same wrappers
+        for pre in PREFIX[:6]:
+            out.append(f"USER: {(pre + text).strip()}\nBOT: {reply}")
     r.shuffle(out)
     d = os.path.join(HERE, "data", "robotcmd")
     os.makedirs(d, exist_ok=True)
     with open(os.path.join(d, "chat.txt"), "w") as f:
         f.write("\n\n".join(out) + "\n")
-    print(f"[robotcmd] {len(out):,} request->command examples across {len(TARGETS)} targets "
-          f"(all robot_bridge-compatible) -> data/robotcmd/chat.txt")
+    uniq = len(set(l.split("\n")[0] for l in out))
+    print(f"[robotcmd] {len(out):,} examples ({uniq:,} unique requests) across {len(TARGETS)} "
+          f"robot_bridge-compatible targets -> data/robotcmd/chat.txt")
 
 
 if __name__ == "__main__":
