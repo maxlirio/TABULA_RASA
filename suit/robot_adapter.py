@@ -144,8 +144,15 @@ class RouteAdapter:
 
     # ------------------------------------------------------------------ the whole translation
     def translate(self, text):
-        sym = parse_robot(text)
-        if sym is None:
+        """English -> symbolic (grounded stand-in) -> robot commands."""
+        return self.expand(parse_robot(text))
+
+    def expand(self, sym):
+        """A symbolic command (from parse_robot OR the trained LM) -> commands the robot accepts.
+        This is the seam: the LM emits `sym`, the adapter grounds+routes it. It also VALIDATES the
+        symbolic command -- a small LM sometimes emits a near-miss ('goto charging'), which is
+        caught here rather than sent to the robot as a bad target."""
+        if not sym:
             return {"symbolic": None, "cmds": None, "note": "outside the vocabulary"}
         head = sym.split()
         if head[0] == "goto":
@@ -158,4 +165,7 @@ class RouteAdapter:
             if place == "stairs":
                 note = "navigates to the stairs; a `climb` skill is a robot-side TODO"
             return {"symbolic": sym, "cmds": cmds, "note": note}
-        return {"symbolic": sym, "cmds": [sym], "note": "robot_bridge skill verbatim"}
+        if sym in PASSTHROUGH or (head[0] == "go" and len(head) == 2 and head[1] in _DIRECTIONAL):
+            return {"symbolic": sym, "cmds": [sym], "note": "robot_bridge skill verbatim"}
+        return {"symbolic": sym, "cmds": None,           # a near-miss the LM emitted -> refuse, don't guess
+                "note": f"'{sym}' is not a valid command -- ignored"}
