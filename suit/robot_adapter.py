@@ -28,6 +28,8 @@ from suit.commander import _corners, _free_cells, _nearest_free
 PASSTHROUGH = ("cross", "stand", "recover")
 _DIRECTIONAL = ("forward", "back", "left", "right")
 _LANDMARKS = ("door", "table", "window", "charger", "stairs")
+# shapes the LiDAR object-detector recognizes and the brain can be sent to by name (viz/brain.py)
+_SHAPES = ("cylinder", "cube", "box", "ramp", "ball", "sphere", "object", "thing")
 
 
 def parse_robot(text):
@@ -52,6 +54,9 @@ def parse_robot(text):
     for nm in _LANDMARKS:
         if nm in t:
             return f"goto {nm}"
+    for nm in _SHAPES:                                # a LiDAR-recognised object, e.g. "the cylinder"
+        if nm in t:
+            return f"goto {'box' if nm == 'cube' else 'ball' if nm == 'sphere' else nm}"
     if "corner" in t:
         return "goto far corner" if any(w in t for w in ("far", "other", "opposite")) else "goto near corner"
     if any(w in t for w in ("middle", "center", "centre")):
