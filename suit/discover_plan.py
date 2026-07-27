@@ -67,6 +67,53 @@ def plan(form, start, goal, obstacles, bounds, max_len=60):
     return None
 
 
+def noisy_move(x, y, yaw, a, rng, slip=0.25):
+    """A REAL actuator, standing in for the physical robot: forward over/undershoots (0, 1, or 2
+    cells) and sometimes veers a cell sideways; turns are reliable. This is the exact thing that
+    breaks blind execution -- and that closed-loop control below absorbs."""
+    if a == FWD:
+        dx, dy = _DIR[yaw]
+        d = int(rng.choice([0, 1, 1, 1, 2]))
+        sx, sy = ((-dy, dx) if rng.random() < slip else (0, 0))
+        return x + dx * d + sx, y + dy * d + sy, yaw
+    return x, y, (yaw + (1 if a == LEFT else -1)) % 4
+
+
+def run_open_loop(form, start, goal, obstacles, bounds, execute, rng):
+    """Plan once, run the whole sequence BLIND. Fails on a real actuator -- shown for contrast."""
+    seq = plan(form, start, goal, obstacles, bounds)
+    if not seq:
+        return False, [start[:2]]
+    x, y, yaw = start
+    path, (W, H) = [(int(x), int(y))], bounds
+    for a in seq:
+        x, y, yaw = execute(x, y, yaw, a, rng)
+        path.append((int(x), int(y)))
+        if (x, y) in obstacles or not (0 <= x < W and 0 <= y < H):
+            return False, path
+    return (x, y) == tuple(goal[:2]), path
+
+
+def run_closed_loop(form, start, goal, obstacles, bounds, execute, rng, max_steps=80):
+    """THE ROBUST WAY. Re-plan from the SENSED position every step, take ONE step, then sense again.
+    On a real robot `execute` sends the button to the actuator and returns the pose the camera+lidar
+    report -- so the plan is always re-grounded in reality and drift can't pile up.
+    Returns (reached, path)."""
+    x, y, yaw = start
+    path, (W, H) = [(int(x), int(y))], bounds
+    for _ in range(max_steps):
+        if (x, y) == tuple(goal[:2]):
+            return True, path
+        seq = plan(form, (x, y, yaw), goal, obstacles, bounds)   # plan from where it ACTUALLY is
+        if not seq:
+            return False, path
+        x, y, yaw = execute(x, y, yaw, seq[0], rng)              # do ONE step, then loop -> re-sense
+        path.append((int(x), int(y)))
+        if (x, y) in obstacles or not (0 <= x < W and 0 <= y < H):
+            return False, path                                   # crashed -- a lidar reflex prevents this (see notes)
+    return (x, y) == tuple(goal[:2]), path
+
+
 def _render(bounds, start, goal, obstacles, path):
     """Draw the plan as a little map so you can see it go around the object."""
     W, H = bounds
@@ -116,12 +163,16 @@ if __name__ == "__main__":
         print(f"\n  that's {seq.count(FWD)} forwards and {seq.count(LEFT)+seq.count(RIGHT)} turns, "
               f"{len(seq)} presses total.\n")
         print(_render(bounds, start, goal, obstacles, seq))
-        # 3) prove it: follow the plan in the real world, does it reach G without hitting the object?
-        x, y, yaw = start
-        hit = False
-        for a in seq:
-            x, y, yaw = _truth(x, y, yaw, a)
-            if (x, y) in obstacles:
-                hit = True
-        print(f"\n  followed the plan for real -> ended at ({x},{y}); goal is {goal}; "
-              f"hit the object: {hit}   => {'REACHED IT, went around' if (x, y) == goal and not hit else 'FAILED'}")
+
+    # STEP 3 — a REAL robot doesn't move exactly as told. Compare blind vs. re-plan-from-sensed.
+    print("\nSTEP 3 — run it on a NOISY actuator (over/undershoots, veers) — blind vs. closed-loop")
+    N = 300
+    op = sum(run_open_loop(form, start, goal, obstacles, bounds, noisy_move,
+                           np.random.default_rng(i))[0] for i in range(N))
+    cl = sum(run_closed_loop(form, start, goal, obstacles, bounds, noisy_move,
+                             np.random.default_rng(i))[0] for i in range(N))
+    print(f"  BLIND (plan once, run it):            {op}/{N} reached  ({op/N:.0%})")
+    print(f"  CLOSED-LOOP (re-plan from sensed pos): {cl}/{N} reached  ({cl/N:.0%})")
+    print("  => the plan is a per-step suggestion, recomputed from the camera+lidar position each\n"
+          "     step. (Remaining misses are single-step crashes into the wall — on a real robot a\n"
+          "     lidar 'stop before contact' reflex + finer cells than the noise close that gap.)")
