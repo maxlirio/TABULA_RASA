@@ -45,17 +45,22 @@ N_EMBD, N_LAYER, N_HEAD, MIN_FREQ = "1024", "16", "16", "0"
 WARM = (len(sys.argv) <= 4 or sys.argv[4] != "nowarm")
 
 def check_gpu():
-    """Fail NOW, not 3 minutes from now. Kaggle's PyTorch ships sm_70+ kernels only, so a P100
-    (sm_60) reports cuda available and then dies on the first kernel launch -- but only AFTER the
-    corpus is assembled, so it surfaces as a cryptic CUDA trace that reads like a data bug. The
-    Kaggle API cannot request a GPU type (enable_gpu is the only knob and it defaults to a P100),
-    so the T4 is a UI choice and this guard is the only thing that catches getting it wrong."""
-    assert torch.cuda.is_available(), "No GPU. Set the notebook Accelerator to GPU T4 x2."
+    """PROBE the device with a real kernel instead of hard-requiring sm_70. Kaggle's stock PyTorch is
+    sm_70+ (so a P100/sm_60 dies on the first kernel), but the notebook can pip-install a torch that
+    DOES ship sm_60 (e.g. torch==2.4.0 cu121) to run on a P100. So: try a matmul; if it runs, this GPU
+    is fine whatever its sm; if it can't, say exactly what to do (install an sm_<cap> torch, or use T4)."""
+    assert torch.cuda.is_available(), "No GPU. Set the notebook Accelerator to a GPU."
     name, cap = torch.cuda.get_device_name(0), torch.cuda.get_device_capability(0)
-    print(f"GPU: {name} (sm_{cap[0]}{cap[1]})", flush=True)
-    assert cap >= (7, 0), (f"{name} is sm_{cap[0]}{cap[1]}; this PyTorch is sm_70+ only and cannot "
-                           f"execute a single kernel on it. Set the Accelerator to GPU T4 x2.")
-    (torch.zeros(8, 8, device="cuda") @ torch.zeros(8, 8, device="cuda")).sum().item()   # prove it
+    print(f"GPU: {name} (sm_{cap[0]}{cap[1]}); torch {torch.__version__} archs {torch.cuda.get_arch_list()}",
+          flush=True)
+    try:
+        (torch.zeros(8, 8, device="cuda") @ torch.zeros(8, 8, device="cuda")).sum().item()
+    except Exception as e:                            # noqa: BLE001
+        raise SystemExit(f"This torch can't run a kernel on {name} (sm_{cap[0]}{cap[1]}): {e}\n"
+                         f"Fix: pip install a torch that includes sm_{cap[0]}{cap[1]} "
+                         f"(torch==2.4.0 --index-url https://download.pytorch.org/whl/cu121 for a P100), "
+                         f"or use a GPU T4 x2.")
+    print("GPU kernel OK.", flush=True)
 
 
 check_gpu()

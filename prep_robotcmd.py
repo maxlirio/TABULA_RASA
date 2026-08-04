@@ -59,8 +59,14 @@ FIXED = {
     "go forward": ["go forward", "move forward", "step forward", "go straight", "go ahead",
                    "forward a bit", "keep going forward", "advance", "move ahead"],
     "go back": ["go back", "back up", "step back", "move backward", "reverse", "back away", "retreat"],
-    "go left": ["go left", "turn left", "step left", "shuffle left", "veer left", "bear left"],
-    "go right": ["go right", "turn right", "step right", "shuffle right", "veer right", "bear right"],
+    "go left": ["go left", "step left", "shuffle left", "veer left", "bear left", "sidestep left"],
+    "go right": ["go right", "step right", "shuffle right", "veer right", "bear right", "sidestep right"],
+    # TURN = rotate in place (distinct from go/step = translate). apollo used to have no turn verb, so
+    # "turn around" leaked through as an object ("goto turn around"). These fix that at the source.
+    "turn around": ["turn around", "turn back", "turn the other way", "about face", "spin around",
+                    "face the other way", "do a 180", "rotate 180", "turn all the way around", "look behind you"],
+    "turn left": ["turn left", "rotate left", "spin left", "face left", "turn to your left", "swivel left"],
+    "turn right": ["turn right", "rotate right", "spin right", "face right", "turn to your right", "swivel right"],
     "stand": ["stand", "stop", "halt", "hold still", "stay there", "stand still", "freeze", "wait",
               "hold on", "don't move", "stay put"],
     "recover": ["get up", "recover", "stand back up", "get back on your feet", "you fell, get up",
