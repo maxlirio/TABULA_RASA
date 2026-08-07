@@ -157,6 +157,59 @@ def main(seed=0, cap=16000):
         for _ in range(6):
             pairs.add((_cap((r.choice(PREFIX[:6]) + p).strip(), r), "refuse"))
 
+    # ---- COMPOUND / MULTI-STEP. The human can chain sub-commands with ANY connector; apollo learns
+    # to NORMALISE all of them ("then", "and then", "after that", "afterwards", "next", "followed by",
+    # and the elliptical "once you reach X") into a canonical output where sub-commands are joined by
+    # " then ". The bridge then splits the OUTPUT on " then " -- reliable precisely because apollo
+    # always canonicalises, whatever wording the human used. Kept a single-command-dominant minority so
+    # a lone command never gets turned into a spurious sequence.
+    CONNECTORS = ["then", "and then", ", then", "after that", ", after that", "afterwards",
+                  ", afterwards", "next", ", and then", "followed by", "and after that", ", next"]
+    SEQ_ACTIONS = ["go forward", "go back", "go left", "go right",
+                   "turn around", "turn left", "turn right", "stand"]
+
+    def rand_phrase():
+        k = r.random()
+        if k < 0.45:
+            return (r.choice(ADJ) + " " + r.choice(NOUNS)).strip()
+        if k < 0.75:
+            return r.choice(NOUNS)
+        return r.choice(DESCRIPTIONS)
+
+    def rand_atom(goto_ok=True):
+        """(english fragment, canonical symbol) for one sub-command."""
+        if goto_ok and r.random() < 0.5:
+            phrase = rand_phrase()
+            art = r.choice(["the ", "the ", "a ", "that ", ""])
+            return f"{r.choice(GOTO_VERBS)} {art}{phrase}", f"goto {phrase}"
+        target = r.choice(SEQ_ACTIONS)
+        return r.choice(FIXED[target]), target
+
+    def join_eng(engs):
+        s = engs[0]
+        for e in engs[1:]:
+            c = r.choice(CONNECTORS)
+            s += (c if c.startswith(",") else " " + c) + " " + e
+        return s
+
+    for _ in range(2000):                                   # 2- and 3-step chains, varied connectors
+        n = 2 if r.random() < 0.72 else 3
+        atoms = [rand_atom() for _ in range(n)]
+        pairs.add((_wrap(r, join_eng([a[0] for a in atoms])),
+                   " then ".join(a[1] for a in atoms)))
+
+    ELLIPTIC = ["once you reach the {p}", "after you reach the {p}", "when you get to the {p}",
+                "once you're at the {p}", "after you get to the {p}", "once you arrive at the {p}"]
+    for _ in range(600):                                    # destination hidden in the connector clause
+        phrase = rand_phrase()
+        eng, sym = rand_atom(goto_ok=False)
+        pairs.add((_wrap(r, f"{r.choice(ELLIPTIC).format(p=phrase)}, {eng}"),
+                   f"goto {phrase} then {sym}"))
+
+    for _ in range(400):                                    # any impossible part -> refuse the WHOLE thing
+        eng, _sym = rand_atom()
+        pairs.add((_wrap(r, join_eng([eng, r.choice(IMPOSSIBLE)])), "refuse"))
+
     pairs = list(pairs)
     r.shuffle(pairs)
     if len(pairs) > cap:
@@ -177,9 +230,10 @@ def main(seed=0, cap=16000):
     uniq = len(set(l.split("\n")[0] for l in out))
     n_goto = sum(1 for l in out if "\nBOT: goto " in l)
     n_ref = sum(1 for l in out if l.endswith("BOT: refuse"))
+    n_seq = sum(1 for l in out if " then " in l.split("\nBOT: ", 1)[-1])
     print(f"[robotcmd] {len(out):,} examples ({uniq:,} unique) -> data/robotcmd/chat.txt")
-    print(f"           goto-passthrough {n_goto:,} | refuse {n_ref:,} | "
-          f"fixed/social the rest. Teaches intent-extraction + honest refusal, not a lookup table.")
+    print(f"           goto-passthrough {n_goto:,} | multi-step {n_seq:,} | refuse {n_ref:,} | "
+          f"fixed/social the rest. Teaches intent-extraction, chaining + honest refusal, not a lookup.")
 
 
 if __name__ == "__main__":
